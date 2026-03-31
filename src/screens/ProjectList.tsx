@@ -25,15 +25,17 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
   const [filterQuery, setFilterQuery] = useState("");
   const [confirmArchive, setConfirmArchive] = useState<Project[] | null>(null);
 
-  const filtered = useMemo(() => {
-    if (!filterQuery) return projects;
+  const filteredWithMatches = useMemo(() => {
+    if (!filterQuery)
+      return projects.map((p) => ({ project: p, matchIndices: null as number[] | null }));
     return projects
       .map((p) => ({ project: p, match: fuzzyMatch(filterQuery, p.name) }))
       .filter((r) => r.match !== null)
       .sort((a, b) => b.match!.score - a.match!.score)
-      .map((r) => r.project);
+      .map((r) => ({ project: r.project, matchIndices: r.match!.indices }));
   }, [projects, filterQuery]);
 
+  const filtered = filteredWithMatches.map((r) => r.project);
   const cursor = filtered[selectedIndex];
   const maxNameWidth = Math.max(...filtered.map((p) => p.name.length), 10);
 
@@ -173,12 +175,13 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
               </Text>
             </Box>
           ) : (
-            filtered.map((project, i) => (
+            filteredWithMatches.map(({ project, matchIndices }, i) => (
               <ProjectRow
                 key={project.name}
                 project={project}
                 isSelected={i === selectedIndex}
                 isMarked={marked.has(project.name)}
+                matchIndices={matchIndices}
                 maxNameWidth={maxNameWidth}
               />
             ))

@@ -11,14 +11,67 @@ function fit(str: string, width: number): string {
   return str.slice(0, width - 1) + "\u2026";
 }
 
+/** Render name with highlighted match indices */
+function HighlightedName({
+  name,
+  width,
+  indices,
+  isBold,
+}: {
+  name: string;
+  width: number;
+  indices: number[] | null;
+  isBold: boolean;
+}) {
+  const display = fit(name, width);
+  if (!indices || indices.length === 0) {
+    return <Text bold={isBold}>{display}</Text>;
+  }
+
+  const indexSet = new Set(indices);
+  const parts: { text: string; highlight: boolean }[] = [];
+  let current = "";
+  let currentHighlight = false;
+
+  for (let i = 0; i < display.length; i++) {
+    const isMatch = indexSet.has(i);
+    if (i === 0) {
+      currentHighlight = isMatch;
+      current = display[i]!;
+    } else if (isMatch === currentHighlight) {
+      current += display[i];
+    } else {
+      parts.push({ text: current, highlight: currentHighlight });
+      current = display[i]!;
+      currentHighlight = isMatch;
+    }
+  }
+  if (current) parts.push({ text: current, highlight: currentHighlight });
+
+  return (
+    <Text bold={isBold}>
+      {parts.map((p, i) =>
+        p.highlight ? (
+          <Text key={i} bold color="yellow">
+            {p.text}
+          </Text>
+        ) : (
+          <Text key={i}>{p.text}</Text>
+        )
+      )}
+    </Text>
+  );
+}
+
 type Props = {
   project: Project;
   isSelected: boolean;
   isMarked: boolean;
+  matchIndices: number[] | null;
   maxNameWidth: number;
 };
 
-export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Props) {
+export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNameWidth }: Props) {
   const { name, branch, dirtyCount, isGitRepo } = project;
 
   const marker = isMarked ? "> " : "  ";
@@ -35,9 +88,12 @@ export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Prop
     <Box>
       <Text inverse={isSelected} bold={isSelected}>
         {marker}
-        <Text bold={isSelected}>
-          {fit(name, maxNameWidth + 1)}
-        </Text>
+        <HighlightedName
+          name={name}
+          width={maxNameWidth + 1}
+          indices={matchIndices}
+          isBold={isSelected}
+        />
         <Text dimColor>{fit(branch ?? "", BRANCH_WIDTH)}</Text>
         <Text
           color={dirtyCount > 0 ? "yellow" : "green"}
