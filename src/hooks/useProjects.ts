@@ -6,7 +6,7 @@ import * as git from "../utils/git.ts";
 import { isStale } from "../utils/time.ts";
 
 const DEV_DIR = join(process.env["HOME"]!, "Developer");
-const EXCLUDED = new Set(["archive", "tries", ".DS_Store", "TheDev"]);
+const EXCLUDED = new Set(["arch", "Clients", "tries", ".DS_Store", "TheDev"]);
 
 export function useProjects(refreshKey = 0) {
   const [projects, setProjects] = useState<Project[]>([]);

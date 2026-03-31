@@ -2,7 +2,7 @@ import { readdir, rename, mkdir } from "fs/promises";
 import { join } from "path";
 
 const DEV_DIR = join(process.env["HOME"]!, "Developer");
-const ARCHIVE_DIR = join(DEV_DIR, "archive");
+const ARCHIVE_DIR = join(DEV_DIR, "arch");
 
 export type ArchivedProject = {
   name: string;
