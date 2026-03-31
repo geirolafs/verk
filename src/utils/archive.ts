@@ -50,12 +50,3 @@ export async function listArchivedProjects(): Promise<ArchivedProject[]> {
   }
   return projects;
 }
-
-export function projectExists(name: string): boolean {
-  try {
-    const stat = Bun.file(join(DEV_DIR, name)).size;
-    return stat !== undefined;
-  } catch {
-    return false;
-  }
-}

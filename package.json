@@ -1,8 +1,11 @@
 {
   "name": "thedev",
-  "module": "index.ts",
+  "module": "src/index.tsx",
   "type": "module",
   "private": true,
+  "bin": {
+    "thedev": "bin/dev.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "^19.2.14"
