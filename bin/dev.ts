@@ -1,20 +1,42 @@
 #!/usr/bin/env bun
 
 import { join } from "path";
+import { writeFileSync, existsSync } from "fs";
 import {
   fullProjectName,
   templateCommands,
   TEMPLATES,
 } from "../src/utils/templates.ts";
-import { archiveProject } from "../src/utils/archive.ts";
-import { unarchiveProject } from "../src/utils/archive.ts";
-import { existsSync } from "fs";
+import { archiveProject, unarchiveProject } from "../src/utils/archive.ts";
 
-const args = process.argv.slice(2);
+// Strip --output <file> from args (injected by shell wrapper)
+const rawArgs = process.argv.slice(2);
+let outputFile: string | undefined;
+const args: string[] = [];
+
+for (let i = 0; i < rawArgs.length; i++) {
+  if (rawArgs[i] === "--output" && i + 1 < rawArgs.length) {
+    outputFile = rawArgs[i + 1];
+    i++; // skip value
+  } else {
+    args.push(rawArgs[i]!);
+  }
+}
+
 const DEV_DIR = join(process.env["HOME"]!, "Developer");
 
+/** Write shell command — to output file if set, otherwise stdout */
+function emit(cmd: string) {
+  if (outputFile) {
+    writeFileSync(outputFile, cmd + "\n");
+  } else {
+    console.log(cmd);
+  }
+}
+
 if (args.length === 0) {
-  // Interactive TUI mode
+  // Set output file for TUI shell commands
+  globalThis.__devOutputFile = outputFile;
   await import("../src/index.tsx");
 } else if (args[0] === "--help" || args[0] === "-h") {
   console.error(`dev - project hub
@@ -45,8 +67,7 @@ Projects are created with YYYY-MM-DD- prefix.`);
     console.error(`Project '${full}' already exists`);
     process.exit(1);
   }
-  // Output shell commands for eval
-  console.log(templateCommands(projectPath, template));
+  emit(templateCommands(projectPath, template));
 } else if (args[0] === "archive") {
   const name = args[1];
   if (!name) {
@@ -72,7 +93,7 @@ Projects are created with YYYY-MM-DD- prefix.`);
   }
   await unarchiveProject(name, year);
   console.error(`Restored '${name}' from ${year}`);
-  console.log(`cd '${join(DEV_DIR, name)}'`);
+  emit(`cd '${join(DEV_DIR, name)}'`);
 } else {
   console.error(`Unknown command: ${args[0]}. Run 'dev --help' for usage.`);
   process.exit(1);

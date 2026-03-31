@@ -171,6 +171,8 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
   );
 }
 
+import { writeShellCommand } from "../utils/shellOutput.ts";
+
 function write(cmd: string) {
-  process.stdout.write(cmd + "\n");
+  writeShellCommand(cmd);
 }

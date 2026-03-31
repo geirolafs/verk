@@ -8,6 +8,7 @@ import {
 import { Confirm } from "../components/Confirm.tsx";
 import type { Screen } from "../types.ts";
 import { existsSync } from "fs";
+import { writeShellCommand } from "../utils/shellOutput.ts";
 import { join } from "path";
 
 type Props = {
@@ -61,7 +62,7 @@ export function ArchiveList({ onSetScreen, onRefresh }: Props) {
           onRefresh();
           // cd into restored project
           const devDir = join(process.env["HOME"]!, "Developer");
-          process.stdout.write(`cd '${join(devDir, confirmRestore.name)}'\n`);
+          writeShellCommand(`cd '${join(devDir, confirmRestore.name)}'`);
           exit();
         }}
         onCancel={() => setConfirmRestore(null)}

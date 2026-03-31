@@ -3,6 +3,7 @@ import { useState } from "react";
 import { join } from "path";
 import { TemplatePicker } from "../components/TemplatePicker.tsx";
 import { fullProjectName, templateCommands } from "../utils/templates.ts";
+import { writeShellCommand } from "../utils/shellOutput.ts";
 import type { Screen } from "../types.ts";
 
 type Step = "template" | "name" | "pm";
@@ -58,7 +59,7 @@ export function NewProject({ onSetScreen }: Props) {
     const full = fullProjectName(projectName);
     const projectPath = join(devDir, full);
     const cmds = templateCommands(projectPath, tmpl, pmFlag);
-    process.stdout.write(cmds + "\n");
+    writeShellCommand(cmds);
     exit();
   }
 
