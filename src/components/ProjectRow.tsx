@@ -1,10 +1,8 @@
 import { Box, Text } from "ink";
 import type { Project } from "../types.ts";
-import { relativeTime } from "../utils/time.ts";
 
 const BRANCH_WIDTH = 12;
 const STATUS_WIDTH = 10;
-const TIME_WIDTH = 8;
 
 function fit(str: string, width: number): string {
   if (str.length <= width) return str.padEnd(width);
@@ -19,7 +17,7 @@ type Props = {
 };
 
 export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Props) {
-  const { name, branch, dirtyCount, lastCommitTime, isGitRepo } = project;
+  const { name, branch, dirtyCount, isGitRepo } = project;
 
   const marker = isMarked ? "> " : "  ";
 
@@ -29,8 +27,6 @@ export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Prop
       : dirtyCount > 0
         ? `${dirtyCount} dirty`
         : "clean";
-
-  const time = lastCommitTime ? relativeTime(lastCommitTime) : "";
 
   return (
     <Box>
@@ -44,10 +40,7 @@ export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Prop
           color={dirtyCount > 0 ? "yellow" : "green"}
           dimColor={!isGitRepo}
         >
-          {fit(statusText, STATUS_WIDTH)}
-        </Text>
-        <Text dimColor>
-          {fit(time, TIME_WIDTH)}
+          {statusText}
         </Text>
       </Text>
     </Box>
