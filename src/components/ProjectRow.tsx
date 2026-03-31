@@ -5,10 +5,11 @@ import { relativeTime } from "../utils/time.ts";
 type Props = {
   project: Project;
   isSelected: boolean;
+  isMarked: boolean;
   maxNameWidth: number;
 };
 
-export function ProjectRow({ project, isSelected, maxNameWidth }: Props) {
+export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Props) {
   const { name, branch, dirtyCount, lastCommitTime, isStale, isGitRepo } =
     project;
 
@@ -30,7 +31,7 @@ export function ProjectRow({ project, isSelected, maxNameWidth }: Props) {
   return (
     <Box>
       <Text inverse={isSelected} bold={isSelected}>
-        {" "}
+        {isMarked ? ">" : " "}
         {dot}
         <Text bold={isSelected}>
           {name.padEnd(maxNameWidth + 1)}

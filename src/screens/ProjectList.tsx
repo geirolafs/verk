@@ -8,6 +8,7 @@ import { SearchInput } from "../components/SearchInput.tsx";
 import { Confirm } from "../components/Confirm.tsx";
 import { fuzzyMatch } from "../utils/fuzzy.ts";
 import { archiveProject } from "../utils/archive.ts";
+import { writeShellCommand } from "../utils/shellOutput.ts";
 
 type Props = {
   projects: Project[];
@@ -19,9 +20,10 @@ type Props = {
 export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props) {
   const { exit } = useApp();
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [marked, setMarked] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
-  const [confirmArchive, setConfirmArchive] = useState<Project | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState<Project[] | null>(null);
 
   const filtered = useMemo(() => {
     if (!filterQuery) return projects;
@@ -32,23 +34,32 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
       .map((r) => r.project);
   }, [projects, filterQuery]);
 
-  const selected = filtered[selectedIndex];
+  const cursor = filtered[selectedIndex];
   const maxNameWidth = Math.max(...filtered.map((p) => p.name.length), 10);
 
+  // Projects to act on: marked set if any, otherwise cursor
+  function getTargets(): Project[] {
+    if (marked.size > 0) {
+      return filtered.filter((p) => marked.has(p.name));
+    }
+    return cursor ? [cursor] : [];
+  }
+
   useInput((input, key) => {
-    if (confirmArchive) return; // Confirm dialog handles its own input
+    if (confirmArchive) return;
 
     if (filterMode) {
       if (key.escape) {
         setFilterMode(false);
         setFilterQuery("");
         setSelectedIndex(0);
+        setMarked(new Set());
       } else if (key.backspace || key.delete) {
         setFilterQuery((q) => q.slice(0, -1));
         setSelectedIndex(0);
       } else if (key.return) {
-        if (selected) {
-          write(`cd '${selected.path}'`);
+        if (cursor) {
+          writeShellCommand(`cd '${cursor.path}'`);
           exit();
         }
       } else if (input && !key.ctrl && !key.meta) {
@@ -62,46 +73,73 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
       setSelectedIndex((i) => Math.max(0, i - 1));
     } else if (key.downArrow || input === "j") {
       setSelectedIndex((i) => Math.min(filtered.length - 1, i + 1));
+    } else if (input === " ") {
+      // Toggle mark on cursor project, advance cursor
+      if (cursor) {
+        setMarked((prev) => {
+          const next = new Set(prev);
+          if (next.has(cursor.name)) {
+            next.delete(cursor.name);
+          } else {
+            next.add(cursor.name);
+          }
+          return next;
+        });
+        setSelectedIndex((i) => Math.min(filtered.length - 1, i + 1));
+      }
     } else if (key.return) {
-      if (selected) {
-        write(`cd '${selected.path}'`);
+      // Enter only works on single (cursor), not multi-select
+      if (marked.size === 0 && cursor) {
+        writeShellCommand(`cd '${cursor.path}'`);
         exit();
       }
     } else if (input === "v") {
-      if (selected) {
-        write(`cd '${selected.path}' && nvim .`);
+      if (marked.size === 0 && cursor) {
+        writeShellCommand(`cd '${cursor.path}' && nvim .`);
         exit();
       }
     } else if (input === "n") {
       onSetScreen("new");
     } else if (input === "a") {
-      if (selected) {
-        setConfirmArchive(selected);
+      const targets = getTargets();
+      if (targets.length > 0) {
+        setConfirmArchive(targets);
       }
     } else if (input === "u") {
       onSetScreen("archive");
     } else if (input === "/") {
       setFilterMode(true);
       setFilterQuery("");
-    } else if (input === "q" || key.escape) {
+      setMarked(new Set());
+    } else if (key.escape) {
+      if (marked.size > 0) {
+        setMarked(new Set());
+      } else {
+        exit();
+      }
+    } else if (input === "q") {
       exit();
     }
   });
 
   if (confirmArchive) {
     const warnings: string[] = [];
-    if (confirmArchive.dirtyCount > 0)
-      warnings.push(`${confirmArchive.dirtyCount} uncommitted changes`);
-    if (confirmArchive.hasUnpushed)
-      warnings.push("unpushed commits");
+    for (const p of confirmArchive) {
+      if (p.dirtyCount > 0) warnings.push(`${p.name}: ${p.dirtyCount} uncommitted`);
+      if (p.hasUnpushed) warnings.push(`${p.name}: unpushed commits`);
+    }
 
     return (
       <Confirm
-        message={`Archive '${confirmArchive.name}'?`}
+        message={`Archive ${confirmArchive.length} project${confirmArchive.length > 1 ? "s" : ""}?`}
+        items={confirmArchive.map((p) => p.name)}
         warning={warnings.length ? warnings.join(", ") : undefined}
         onConfirm={async () => {
-          await archiveProject(confirmArchive.name);
+          for (const p of confirmArchive) {
+            await archiveProject(p.name);
+          }
           setConfirmArchive(null);
+          setMarked(new Set());
           setSelectedIndex(0);
           onRefresh();
         }}
@@ -123,7 +161,6 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
       </Box>
 
       <Box flexDirection={showSidePreview ? "row" : "column"} flexGrow={1}>
-        {/* Project list */}
         <Box
           flexDirection="column"
           width={showSidePreview ? "50%" : "100%"}
@@ -141,13 +178,13 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
                 key={project.name}
                 project={project}
                 isSelected={i === selectedIndex}
+                isMarked={marked.has(project.name)}
                 maxNameWidth={maxNameWidth}
               />
             ))
           )}
         </Box>
 
-        {/* Preview */}
         {showSidePreview && (
           <Box
             borderStyle="single"
@@ -160,19 +197,13 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
             width="50%"
             paddingTop={1}
           >
-            <Preview project={selected} />
+            <Preview project={cursor} />
           </Box>
         )}
       </Box>
 
       {filterMode && <SearchInput query={filterQuery} />}
-      <StatusBar filterMode={filterMode} />
+      <StatusBar filterMode={filterMode} selectedCount={marked.size} />
     </Box>
   );
-}
-
-import { writeShellCommand } from "../utils/shellOutput.ts";
-
-function write(cmd: string) {
-  writeShellCommand(cmd);
 }
