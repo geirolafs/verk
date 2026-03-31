@@ -6,7 +6,7 @@ import * as git from "../utils/git.ts";
 import { isStale } from "../utils/time.ts";
 
 const DEV_DIR = join(process.env["HOME"]!, "Developer");
-const EXCLUDED = new Set(["arch", "Clients", "tries", ".DS_Store", "TheDev"]);
+const EXCLUDED = new Set(["Archive", "Clients", "tries", ".DS_Store", "TheDev"]);
 
 export function useProjects(refreshKey = 0) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -33,6 +33,8 @@ export function useProjects(refreshKey = 0) {
         hasUnpushed: false,
         isStale: false,
       }));
+      // Sort by name descending (date prefix = newest first)
+      initial.sort((a, b) => b.name.localeCompare(a.name));
       if (!cancelled) {
         setProjects(initial);
         setLoading(false);
@@ -96,16 +98,10 @@ export function useProjects(refreshKey = 0) {
         Array.from({ length: CONCURRENCY }, () => next())
       );
 
-      // Sort by last commit time once all loaded
+      // Sort by name descending (date prefix = newest first)
       if (!cancelled) {
         setProjects((prev) =>
-          [...prev].sort((a, b) => {
-            if (a.lastCommitTime && b.lastCommitTime)
-              return b.lastCommitTime - a.lastCommitTime;
-            if (a.lastCommitTime) return -1;
-            if (b.lastCommitTime) return 1;
-            return a.name.localeCompare(b.name);
-          })
+          [...prev].sort((a, b) => b.name.localeCompare(a.name))
         );
       }
     }
