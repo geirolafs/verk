@@ -2,6 +2,15 @@ import { Box, Text } from "ink";
 import type { Project } from "../types.ts";
 import { relativeTime } from "../utils/time.ts";
 
+const BRANCH_WIDTH = 12;
+const STATUS_WIDTH = 10;
+const TIME_WIDTH = 8;
+
+function fit(str: string, width: number): string {
+  if (str.length <= width) return str.padEnd(width);
+  return str.slice(0, width - 1) + "\u2026";
+}
+
 type Props = {
   project: Project;
   isSelected: boolean;
@@ -34,17 +43,17 @@ export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Prop
         {isMarked ? ">" : " "}
         {dot}
         <Text bold={isSelected}>
-          {name.padEnd(maxNameWidth + 1)}
+          {fit(name, maxNameWidth + 1)}
         </Text>
-        <Text dimColor>{(branch ?? "").padEnd(12)}</Text>
+        <Text dimColor>{fit(branch ?? "", BRANCH_WIDTH)}</Text>
         <Text
           color={dirtyCount > 0 ? "yellow" : "green"}
           dimColor={!isGitRepo}
         >
-          {statusText.padEnd(10)}
+          {fit(statusText, STATUS_WIDTH)}
         </Text>
         <Text dimColor>
-          {time.padEnd(8)}
+          {fit(time, TIME_WIDTH)}
         </Text>
         {isStale && <Text color="yellow"> {"\u26A0"}</Text>}
       </Text>
