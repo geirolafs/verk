@@ -19,14 +19,9 @@ type Props = {
 };
 
 export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Props) {
-  const { name, branch, dirtyCount, lastCommitTime, isStale, isGitRepo } =
-    project;
+  const { name, branch, dirtyCount, lastCommitTime, isGitRepo } = project;
 
-  const dot = !isGitRepo
-    ? "  "
-    : dirtyCount > 0
-      ? "\u001b[33m\u25cf\u001b[0m "
-      : "\u001b[32m\u25cf\u001b[0m ";
+  const marker = isMarked ? "> " : "  ";
 
   const statusText =
     !isGitRepo
@@ -40,8 +35,7 @@ export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Prop
   return (
     <Box>
       <Text inverse={isSelected} bold={isSelected}>
-        {isMarked ? ">" : " "}
-        {dot}
+        {marker}
         <Text bold={isSelected}>
           {fit(name, maxNameWidth + 1)}
         </Text>
@@ -55,7 +49,6 @@ export function ProjectRow({ project, isSelected, isMarked, maxNameWidth }: Prop
         <Text dimColor>
           {fit(time, TIME_WIDTH)}
         </Text>
-        {isStale && <Text color="yellow"> {"\u26A0"}</Text>}
       </Text>
     </Box>
   );
