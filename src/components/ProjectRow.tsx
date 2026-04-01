@@ -28,8 +28,27 @@ function isClean(project: Project): boolean {
   return modified === 0 && untracked === 0 && deleted === 0 && project.ahead === 0;
 }
 
-/** Render name with highlighted match indices */
-function HighlightedName({
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})-(.+)$/;
+
+/** Split name into date prefix and rest. Returns null if no date prefix. */
+function splitDateName(name: string): { date: string; rest: string; shortDate: string } | null {
+  const m = name.match(DATE_RE);
+  if (!m) return null;
+  return {
+    date: `${m[1]}-${m[2]}-${m[3]}-`,       // "2026-03-14-"
+    shortDate: `${m[1]!.slice(2)}-${m[2]}-${m[3]}-`, // "26-03-14-"
+    rest: m[4]!,
+  };
+}
+
+/**
+ * Render the project name with:
+ * - Date prefix dimmed
+ * - Progressive truncation: YYYY→YY first, then truncate rest with …
+ * - Min 5 chars of rest visible before truncating
+ * - Fuzzy match highlighting
+ */
+function ProjectName({
   name,
   width,
   indices,
@@ -40,9 +59,80 @@ function HighlightedName({
   indices: number[] | null;
   isBold: boolean;
 }) {
-  const display = fit(name, width);
+  const parsed = splitDateName(name);
+
+  if (!parsed) {
+    // No date prefix — just render with fit + highlighting
+    return <HighlightedText text={fit(name, width)} indices={indices} isBold={isBold} />;
+  }
+
+  const { date, shortDate, rest } = parsed;
+  const fullLen = date.length + rest.length;
+
+  let dateDisplay: string;
+  let restDisplay: string;
+  // Offset for match indices when using short date (2 chars shorter)
+  let indexOffset = 0;
+
+  if (fullLen <= width) {
+    // Full date fits
+    dateDisplay = date;
+    restDisplay = rest;
+  } else if (shortDate.length + rest.length <= width) {
+    // Short date fits
+    dateDisplay = shortDate;
+    restDisplay = rest;
+    indexOffset = 2; // indices shift left by 2
+  } else {
+    // Need to truncate rest too
+    dateDisplay = shortDate;
+    indexOffset = 2;
+    const availableForRest = width - shortDate.length;
+    if (availableForRest >= 6) {
+      // At least 5 chars + ellipsis
+      restDisplay = rest.slice(0, availableForRest - 1) + "\u2026";
+    } else if (availableForRest > 0) {
+      restDisplay = rest.slice(0, availableForRest - 1) + "\u2026";
+    } else {
+      restDisplay = "";
+    }
+  }
+
+  const totalLen = dateDisplay.length + restDisplay.length;
+  const padding = width > totalLen ? " ".repeat(width - totalLen) : "";
+
+  // Adjust match indices for the shortened date
+  const adjustedIndices = indices && indexOffset > 0
+    ? indices.map((i) => i - indexOffset).filter((i) => i >= 0)
+    : indices;
+
+  // Split indices into date part and rest part
+  const dateLen = dateDisplay.length;
+  const dateIndices = adjustedIndices?.filter((i) => i < dateLen) ?? [];
+  const restIndices = adjustedIndices?.filter((i) => i >= dateLen).map((i) => i - dateLen) ?? [];
+
+  return (
+    <Text bold={isBold}>
+      <HighlightedText text={dateDisplay} indices={dateIndices.length > 0 ? dateIndices : null} isBold={isBold} dimBase />
+      <HighlightedText text={restDisplay + padding} indices={restIndices.length > 0 ? restIndices : null} isBold={isBold} />
+    </Text>
+  );
+}
+
+/** Render text with optional highlighted indices */
+function HighlightedText({
+  text,
+  indices,
+  isBold,
+  dimBase,
+}: {
+  text: string;
+  indices: number[] | null;
+  isBold: boolean;
+  dimBase?: boolean;
+}) {
   if (!indices || indices.length === 0) {
-    return <Text bold={isBold}>{display}</Text>;
+    return dimBase ? <Text dimColor>{text}</Text> : <Text>{text}</Text>;
   }
 
   const indexSet = new Set(indices);
@@ -50,33 +140,37 @@ function HighlightedName({
   let current = "";
   let currentHighlight = false;
 
-  for (let i = 0; i < display.length; i++) {
+  for (let i = 0; i < text.length; i++) {
     const isMatch = indexSet.has(i);
     if (i === 0) {
       currentHighlight = isMatch;
-      current = display[i]!;
+      current = text[i]!;
     } else if (isMatch === currentHighlight) {
-      current += display[i];
+      current += text[i];
     } else {
       parts.push({ text: current, highlight: currentHighlight });
-      current = display[i]!;
+      current = text[i]!;
       currentHighlight = isMatch;
     }
   }
   if (current) parts.push({ text: current, highlight: currentHighlight });
 
   return (
-    <Text bold={isBold}>
+    <>
       {parts.map((p, i) =>
         p.highlight ? (
           <Text key={i} bold color="yellow">
+            {p.text}
+          </Text>
+        ) : dimBase ? (
+          <Text key={i} dimColor>
             {p.text}
           </Text>
         ) : (
           <Text key={i}>{p.text}</Text>
         )
       )}
-    </Text>
+    </>
   );
 }
 
@@ -96,6 +190,9 @@ export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNam
   const statusText = formatStatus(project);
   const clean = isClean(project);
 
+  // Min name: short date (9) + 5 chars + ellipsis = 15
+  const MIN_NAME = 15;
+
   // Compute column widths to fit termWidth
   let nameW = maxNameWidth + 1;
   let branchW = BRANCH_WIDTH;
@@ -104,19 +201,22 @@ export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNam
 
   if (termWidth) {
     const available = termWidth - 2; // marker
-    // Shrink name first, then time, then status, then branch
     const total = () => nameW + branchW + statusW + timeW;
-    if (total() > available) nameW = Math.max(15, available - branchW - statusW - timeW);
+    // 1. Shrink branch first (before name)
+    if (total() > available) branchW = Math.max(0, branchW - (total() - available));
+    // 2. Then shrink name
+    if (total() > available) nameW = Math.max(MIN_NAME, available - branchW - statusW - timeW);
+    // 3. Then time
     if (total() > available) timeW = Math.max(0, available - nameW - branchW - statusW);
+    // 4. Then status
     if (total() > available) statusW = Math.max(0, available - nameW - branchW);
-    if (total() > available) branchW = Math.max(0, available - nameW);
   }
 
   return (
     <Box>
       <Text inverse={isSelected} bold={isSelected}>
         {marker}
-        <HighlightedName
+        <ProjectName
           name={name}
           width={nameW}
           indices={matchIndices}
