@@ -9,7 +9,7 @@ type PreviewData = {
 	tree: string[];
 };
 
-export function Preview({ project }: { project: Project | undefined }) {
+export function Preview({ project, height }: { project: Project | undefined; height?: number }) {
 	const [data, setData] = useState<PreviewData | null>(null);
 
 	useEffect(() => {
@@ -41,14 +41,14 @@ export function Preview({ project }: { project: Project | undefined }) {
 
 	if (!project) {
 		return (
-			<Box flexDirection="column" paddingLeft={1}>
+			<Box flexDirection="column" paddingLeft={1} height={height}>
 				<Text dimColor>No project selected</Text>
 			</Box>
 		);
 	}
 
 	return (
-		<Box flexDirection="column" paddingLeft={1} paddingRight={1}>
+		<Box flexDirection="column" paddingLeft={1} paddingRight={1} height={height}>
 			<Text bold>{project.name}</Text>
 			{project.lastCommitMessage && (
 				<Text dimColor>last: {project.lastCommitMessage}</Text>

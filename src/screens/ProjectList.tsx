@@ -482,7 +482,7 @@ export function ProjectList({
             width="50%"
             paddingTop={1}
           >
-            <Preview project={cursor} />
+            <Preview project={cursor} height={maxVisible} />
           </Box>
         )}
       </Box>
