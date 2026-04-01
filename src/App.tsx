@@ -1,32 +1,93 @@
-import { useCallback, useState } from "react";
-import { useProjects } from "./hooks/useProjects.ts";
-import { ArchiveList } from "./screens/ArchiveList.tsx";
-import { NewProject } from "./screens/NewProject.tsx";
+import { useCallback, useMemo, useState } from "react";
+import { join } from "path";
+import type { View, ListConfig } from "./types.ts";
 import { ProjectList } from "./screens/ProjectList.tsx";
-import type { Screen } from "./types.ts";
+import { NewProject } from "./screens/NewProject.tsx";
+
+const DEV_DIR = join(process.env["HOME"]!, "Developer");
+
+const PROJECTS_EXCLUDES = new Set([
+  "Archive",
+  "Clients",
+  "tries",
+  ".DS_Store",
+  "TheDev",
+]);
+const EMPTY_EXCLUDES = new Set([".DS_Store"]);
+
+function getConfig(view: View): ListConfig {
+  switch (view.kind) {
+    case "projects":
+      return {
+        basePath: DEV_DIR,
+        title: "~/Developer",
+        excludes: PROJECTS_EXCLUDES,
+        actions: new Set(),
+      };
+    case "tries":
+      return {
+        basePath: join(DEV_DIR, "tries"),
+        title: "~/Developer/tries",
+        excludes: EMPTY_EXCLUDES,
+        actions: new Set(),
+      };
+    case "clients":
+      return {
+        basePath: join(DEV_DIR, "Clients"),
+        title: "~/Developer/Clients",
+        excludes: EMPTY_EXCLUDES,
+        actions: new Set(),
+      };
+    case "client":
+      return {
+        basePath: join(DEV_DIR, "Clients", view.name),
+        title: `~/Developer/Clients/${view.name}`,
+        excludes: EMPTY_EXCLUDES,
+        actions: new Set(),
+      };
+    case "archive":
+      return {
+        basePath: join(DEV_DIR, "Archive"),
+        title: "~/Developer/Archive",
+        excludes: EMPTY_EXCLUDES,
+        actions: new Set(),
+      };
+    default:
+      return {
+        basePath: DEV_DIR,
+        title: "~/Developer",
+        excludes: PROJECTS_EXCLUDES,
+        actions: new Set(),
+      };
+  }
+}
 
 export function App() {
-	const [screen, setScreen] = useState<Screen>("list");
-	const [refreshKey, setRefreshKey] = useState(0);
-	const { projects, loading } = useProjects(refreshKey);
+  const [view, setView] = useState<View>({ kind: "projects" });
+  const [refreshKey, setRefreshKey] = useState(0);
 
-	const handleRefresh = useCallback(() => {
-		setRefreshKey((k) => k + 1);
-	}, []);
+  const handleRefresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
-	switch (screen) {
-		case "new":
-			return <NewProject onSetScreen={setScreen} />;
-		case "archive":
-			return <ArchiveList onSetScreen={setScreen} onRefresh={handleRefresh} />;
-		default:
-			return (
-				<ProjectList
-					projects={projects}
-					loading={loading}
-					onSetScreen={setScreen}
-					onRefresh={handleRefresh}
-				/>
-			);
-	}
+  const config = useMemo(() => getConfig(view), [view]);
+
+  if (view.kind === "new") {
+    return (
+      <NewProject
+        basePath={view.basePath}
+        onBack={() => setView({ kind: "projects" })}
+      />
+    );
+  }
+
+  return (
+    <ProjectList
+      view={view}
+      config={config}
+      onSetView={setView}
+      refreshKey={refreshKey}
+      onRefresh={handleRefresh}
+    />
+  );
 }

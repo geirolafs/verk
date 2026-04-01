@@ -4,12 +4,12 @@ import { join } from "path";
 import { TemplatePicker } from "../components/TemplatePicker.tsx";
 import { fullProjectName, templateCommands } from "../utils/templates.ts";
 import { writeShellCommand } from "../utils/shellOutput.ts";
-import type { Screen } from "../types.ts";
 
 type Step = "template" | "name" | "pm";
 
 type Props = {
-  onSetScreen: (screen: Screen) => void;
+  basePath: string;
+  onBack: () => void;
 };
 
 const PM_OPTIONS = [
@@ -18,19 +18,17 @@ const PM_OPTIONS = [
   { flag: "--use-npm", label: "npm" },
 ];
 
-export function NewProject({ onSetScreen }: Props) {
+export function NewProject({ basePath, onBack }: Props) {
   const { exit } = useApp();
   const [step, setStep] = useState<Step>("template");
   const [template, setTemplate] = useState("");
   const [name, setName] = useState("");
   const [pmIndex, setPmIndex] = useState(0);
 
-  const devDir = join(process.env["HOME"]!, "Developer");
-
   useInput((input, key) => {
     if (step === "name") {
       if (key.escape) {
-        onSetScreen("list");
+        onBack();
       } else if (key.backspace || key.delete) {
         setName((n) => n.slice(0, -1));
       } else if (key.return && name.trim()) {
@@ -57,7 +55,7 @@ export function NewProject({ onSetScreen }: Props) {
 
   function create(projectName: string, tmpl: string, pmFlag?: string) {
     const full = fullProjectName(projectName);
-    const projectPath = join(devDir, full);
+    const projectPath = join(basePath, full);
     const cmds = templateCommands(projectPath, tmpl, pmFlag);
     writeShellCommand(cmds);
     exit();
@@ -70,7 +68,7 @@ export function NewProject({ onSetScreen }: Props) {
           setTemplate(t);
           setStep("name");
         }}
-        onCancel={() => onSetScreen("list")}
+        onCancel={onBack}
       />
     );
   }
@@ -93,6 +91,7 @@ export function NewProject({ onSetScreen }: Props) {
   }
 
   const preview = fullProjectName(name.trim() || "...");
+  const displayPath = basePath.replace(process.env["HOME"]!, "~");
 
   return (
     <Box flexDirection="column" paddingLeft={1} paddingTop={1}>
@@ -108,7 +107,7 @@ export function NewProject({ onSetScreen }: Props) {
         <Text dimColor>{"\u2588"}</Text>
       </Box>
       <Text dimColor>
-        {"\u2192"} ~/Developer/{preview}
+        {"\u2192"} {displayPath}/{preview}
       </Text>
       <Text> </Text>
       <Text dimColor>enter create  esc back</Text>

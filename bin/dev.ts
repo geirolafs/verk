@@ -7,7 +7,7 @@ import {
   templateCommands,
   TEMPLATES,
 } from "../src/utils/templates.ts";
-import { archiveProject, unarchiveProject } from "../src/utils/archive.ts";
+import { archiveProject, restoreProject } from "../src/utils/archive.ts";
 
 // Strip --output <file> from args (injected by shell wrapper)
 const rawArgs = process.argv.slice(2);
@@ -91,7 +91,7 @@ Projects are created with YYYY-MM-DD- prefix.`);
     console.error(`Project '${name}' already exists in ~/Developer`);
     process.exit(1);
   }
-  await unarchiveProject(name, year);
+  await restoreProject(name, year);
   console.error(`Restored '${name}' from ${year}`);
   emit(`cd '${join(DEV_DIR, name)}'`);
 } else {

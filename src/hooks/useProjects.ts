@@ -4,12 +4,13 @@ import { join } from "path";
 import type { Project } from "../types.ts";
 import * as git from "../utils/git.ts";
 
-const DEV_DIR = join(process.env["HOME"]!, "Developer");
-const EXCLUDED = new Set(["Archive", "Clients", "tries", ".DS_Store", "TheDev"]);
-
 const EMPTY_STATUS: git.GitStatus = { modified: 0, untracked: 0, deleted: 0 };
 
-export function useProjects(refreshKey = 0) {
+export function useProjects(
+  basePath: string,
+  excludes: Set<string>,
+  refreshKey = 0
+) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,14 +18,29 @@ export function useProjects(refreshKey = 0) {
     let cancelled = false;
 
     async function load() {
-      const entries = await readdir(DEV_DIR, { withFileTypes: true });
+      let entries;
+      try {
+        entries = await readdir(basePath, { withFileTypes: true });
+      } catch {
+        if (!cancelled) {
+          setProjects([]);
+          setLoading(false);
+        }
+        return;
+      }
+
       const dirs = entries
-        .filter((e) => e.isDirectory() && !EXCLUDED.has(e.name) && !e.name.startsWith("."))
+        .filter(
+          (e) =>
+            e.isDirectory() &&
+            !excludes.has(e.name) &&
+            !e.name.startsWith(".")
+        )
         .map((e) => e.name);
 
       const initial: Project[] = dirs.map((name) => ({
         name,
-        path: join(DEV_DIR, name),
+        path: join(basePath, name),
         isGitRepo: false,
         branch: null,
         status: EMPTY_STATUS,
@@ -45,7 +61,7 @@ export function useProjects(refreshKey = 0) {
         while (i < dirs.length) {
           const idx = i++;
           const name = dirs[idx]!;
-          const path = join(DEV_DIR, name);
+          const path = join(basePath, name);
           const isRepo = await git.isGitRepo(path);
 
           let project: Project = {
@@ -60,13 +76,12 @@ export function useProjects(refreshKey = 0) {
           };
 
           if (isRepo) {
-            const [branch, status, lastCommit, ahead] =
-              await Promise.all([
-                git.getBranch(path),
-                git.getStatus(path),
-                git.getLastCommit(path),
-                git.getAheadCount(path),
-              ]);
+            const [branch, status, lastCommit, ahead] = await Promise.all([
+              git.getBranch(path),
+              git.getStatus(path),
+              git.getLastCommit(path),
+              git.getAheadCount(path),
+            ]);
 
             project = {
               ...project,
@@ -104,7 +119,7 @@ export function useProjects(refreshKey = 0) {
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [basePath, refreshKey]);
 
   return { projects, loading };
 }

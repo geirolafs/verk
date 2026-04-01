@@ -11,4 +11,23 @@ export type Project = {
   lastCommitTime: number | null;
 };
 
-export type Screen = "list" | "new" | "archive";
+export type View =
+  | { kind: "projects" }
+  | { kind: "tries" }
+  | { kind: "clients" }
+  | { kind: "client"; name: string }
+  | { kind: "archive" }
+  | { kind: "new"; basePath: string };
+
+export type ViewAction =
+  | "cd" | "nvim" | "new" | "archive" | "enterArchive"
+  | "enterTries" | "enterClients" | "enterClient"
+  | "sendToClient" | "promoteTry" | "restore"
+  | "filter" | "select" | "quit";
+
+export type ListConfig = {
+  basePath: string;
+  title: string;
+  excludes: Set<string>;
+  actions: Set<ViewAction>;
+};
