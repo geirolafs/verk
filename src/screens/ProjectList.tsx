@@ -398,7 +398,8 @@ export function ProjectList({
 
   const { columns: termWidth, rows: termRows } = useTerminalSize();
   const showSidePreview = termWidth >= 100 && !isArchive && view.kind !== "clients";
-  const listWidth = showSidePreview ? Math.floor(termWidth / 2) : termWidth;
+  // Subtract 1 for border char when side preview is shown
+  const listWidth = showSidePreview ? Math.floor(termWidth / 2) - 1 : termWidth;
 
   // Scroll window: reserve 4 rows for header + statusbar + padding
   const maxVisible = Math.max(5, termRows - 5);
@@ -492,6 +493,7 @@ export function ProjectList({
         view={view}
         filterMode={filterMode}
         selectedCount={marked.size}
+        width={termWidth}
       />
     </Box>
   );

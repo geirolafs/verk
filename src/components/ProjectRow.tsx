@@ -80,9 +80,6 @@ function HighlightedName({
   );
 }
 
-// Fixed columns: marker(2) + branch(12) + status(16) + time(8) = 38
-const FIXED_COLS = 2 + BRANCH_WIDTH + STATUS_WIDTH + TIME_WIDTH;
-
 type Props = {
   project: Project;
   isSelected: boolean;
@@ -93,17 +90,27 @@ type Props = {
 };
 
 export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNameWidth, termWidth }: Props) {
-  // Cap name width so total row fits terminal
-  const availableForName = termWidth
-    ? Math.max(15, termWidth - FIXED_COLS)
-    : maxNameWidth + 1;
-  const nameWidth = Math.min(maxNameWidth + 1, availableForName);
   const { name, branch, isGitRepo } = project;
-
   const marker = isMarked ? "> " : "  ";
   const time = relativeTimeFromPrefix(name);
   const statusText = formatStatus(project);
   const clean = isClean(project);
+
+  // Compute column widths to fit termWidth
+  let nameW = maxNameWidth + 1;
+  let branchW = BRANCH_WIDTH;
+  let statusW = STATUS_WIDTH;
+  let timeW = TIME_WIDTH;
+
+  if (termWidth) {
+    const available = termWidth - 2; // marker
+    // Shrink name first, then time, then status, then branch
+    const total = () => nameW + branchW + statusW + timeW;
+    if (total() > available) nameW = Math.max(15, available - branchW - statusW - timeW);
+    if (total() > available) timeW = Math.max(0, available - nameW - branchW - statusW);
+    if (total() > available) statusW = Math.max(0, available - nameW - branchW);
+    if (total() > available) branchW = Math.max(0, available - nameW);
+  }
 
   return (
     <Box>
@@ -111,18 +118,20 @@ export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNam
         {marker}
         <HighlightedName
           name={name}
-          width={nameWidth}
+          width={nameW}
           indices={matchIndices}
           isBold={isSelected}
         />
-        <Text dimColor>{fit(branch ?? "", BRANCH_WIDTH)}</Text>
-        <Text
-          color={clean ? "green" : "yellow"}
-          dimColor={!isGitRepo}
-        >
-          {fit(statusText, STATUS_WIDTH)}
-        </Text>
-        <Text dimColor>{fit(time, TIME_WIDTH)}</Text>
+        {branchW > 0 && <Text dimColor>{fit(branch ?? "", branchW)}</Text>}
+        {statusW > 0 && (
+          <Text
+            color={clean ? "green" : "yellow"}
+            dimColor={!isGitRepo}
+          >
+            {fit(statusText, statusW)}
+          </Text>
+        )}
+        {timeW > 0 && <Text dimColor>{fit(time, timeW)}</Text>}
       </Text>
     </Box>
   );
