@@ -30,7 +30,7 @@ export function TemplatePicker({ onSelect, onCancel }: Props) {
         <Box key={t.name}>
           <Text inverse={i === selected} bold={i === selected}>
             {" "}
-            {t.label.padEnd(10)} <Text dimColor>{t.description}</Text>
+            {t.name.padEnd(10)} <Text dimColor>{t.description}</Text>
           </Text>
         </Box>
       ))}
