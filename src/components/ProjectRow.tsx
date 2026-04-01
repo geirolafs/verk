@@ -19,7 +19,7 @@ function formatStatus(project: Project): string {
   if (untracked > 0) parts.push(`+${untracked}`);
   if (deleted > 0) parts.push(`-${deleted}`);
   if (project.ahead > 0) parts.push(`\u2191${project.ahead}`);
-  if (parts.length === 0) return "clean";
+  if (parts.length === 0) return "\u25cf";
   return parts.join(" ");
 }
 
