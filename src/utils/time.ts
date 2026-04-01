@@ -26,12 +26,12 @@ export function relativeTimeFromPrefix(name: string): string {
   if (isNaN(date.getTime())) return "";
   const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
   if (days <= 0) return "today";
-  if (days === 1) return "1d ago";
-  if (days < 7) return `${days}d ago`;
+  if (days === 1) return "1d";
+  if (days < 7) return `${days}d`;
   const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
+  if (weeks < 5) return `${weeks}w`;
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
+  if (months < 12) return `${months}mo`;
   const years = Math.floor(months / 12);
-  return `${years}y ago`;
+  return `${years}y`;
 }
