@@ -102,6 +102,7 @@ export function ProjectList({
   const [filterQuery, setFilterQuery] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [nameInput, setNameInput] = useState("");
+  const [pendingG, setPendingG] = useState(false);
 
   const filtered = useMemo(() => {
     const list = displayProjects;
@@ -185,11 +186,36 @@ export function ProjectList({
       return;
     }
 
+    // Handle pending g (gg = top)
+    if (pendingG) {
+      setPendingG(false);
+      if (input === "g") {
+        setSelectedIndex(0);
+        return;
+      }
+      // Not gg — fall through to normal handling
+    }
+
     // Navigation
     if (key.upArrow || input === "k") {
       setSelectedIndex((i) => Math.max(0, i - 1));
     } else if (key.downArrow || input === "j") {
       setSelectedIndex((i) => Math.min(filtered.length - 1, i + 1));
+    }
+    // ctrl+d / ctrl+u — half page
+    else if (input === "d" && key.ctrl) {
+      const half = Math.floor(maxVisible / 2);
+      setSelectedIndex((i) => Math.min(filtered.length - 1, i + half));
+    } else if (input === "u" && key.ctrl) {
+      const half = Math.floor(maxVisible / 2);
+      setSelectedIndex((i) => Math.max(0, i - half));
+    }
+    // G = bottom, g = start gg sequence
+    else if (input === "G") {
+      setSelectedIndex(filtered.length - 1);
+    } else if (input === "g") {
+      setPendingG(true);
+      return;
     }
     // Toggle select
     else if (input === " ") {
