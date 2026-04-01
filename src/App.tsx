@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { join } from "path";
+import { existsSync } from "fs";
 import type { View, ListConfig } from "./types.ts";
 import { ProjectList } from "./screens/ProjectList.tsx";
 import { NewProject } from "./screens/NewProject.tsx";
@@ -65,6 +66,14 @@ function getConfig(view: View): ListConfig {
 export function App() {
   const [view, setView] = useState<View>({ kind: "projects" });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [hasTries, setHasTries] = useState(false);
+  const [hasClients, setHasClients] = useState(false);
+
+  // Check which optional folders exist (re-check on refresh)
+  useEffect(() => {
+    setHasTries(existsSync(join(DEV_DIR, "tries")));
+    setHasClients(existsSync(join(DEV_DIR, "Clients")));
+  }, [refreshKey]);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -88,6 +97,8 @@ export function App() {
       onSetView={setView}
       refreshKey={refreshKey}
       onRefresh={handleRefresh}
+      hasTries={hasTries}
+      hasClients={hasClients}
     />
   );
 }

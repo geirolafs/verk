@@ -31,6 +31,8 @@ type Props = {
   onSetView: (view: View) => void;
   refreshKey: number;
   onRefresh: () => void;
+  hasTries: boolean;
+  hasClients: boolean;
 };
 
 type Dialog =
@@ -49,6 +51,8 @@ export function ProjectList({
   onSetView,
   refreshKey,
   onRefresh,
+  hasTries,
+  hasClients,
 }: Props) {
   const { exit } = useApp();
   const { projects, loading } = useProjects(
@@ -255,15 +259,15 @@ export function ProjectList({
       }
     }
     // Enter sub-views
-    else if (input === "t" && view.kind === "projects") {
+    else if (input === "t" && view.kind === "projects" && hasTries) {
       onSetView({ kind: "tries" });
-    } else if (input === "c" && view.kind === "projects") {
+    } else if (input === "c" && view.kind === "projects" && hasClients) {
       onSetView({ kind: "clients" });
     } else if (input === "a" && view.kind === "projects") {
       onSetView({ kind: "archive" });
     }
     // Send to client
-    else if (input === "s" && (view.kind === "projects" || view.kind === "tries")) {
+    else if (input === "s" && hasClients && (view.kind === "projects" || view.kind === "tries")) {
       const targets = getTargets();
       if (targets.length > 0) {
         setDialog({ kind: "clientPicker", targets });
@@ -537,6 +541,8 @@ export function ProjectList({
         filterMode={filterMode}
         selectedCount={marked.size}
         width={termWidth}
+        hasTries={hasTries}
+        hasClients={hasClients}
       />
     </Box>
   );

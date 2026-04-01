@@ -6,6 +6,8 @@ type Props = {
   filterMode?: boolean;
   selectedCount?: number;
   width?: number;
+  hasTries: boolean;
+  hasClients: boolean;
 };
 
 function truncate(str: string, maxWidth?: number): string {
@@ -13,8 +15,7 @@ function truncate(str: string, maxWidth?: number): string {
   return str.slice(0, maxWidth - 1) + "\u2026";
 }
 
-export function StatusBar({ view, filterMode, selectedCount = 0, width }: Props) {
-  // Account for border padding (paddingLeft=1 + border)
+export function StatusBar({ view, filterMode, selectedCount = 0, width, hasTries, hasClients }: Props) {
   const maxW = width ? width - 2 : undefined;
 
   if (filterMode) {
@@ -27,7 +28,7 @@ export function StatusBar({ view, filterMode, selectedCount = 0, width }: Props)
 
   if (selectedCount > 0) {
     const prefix = `${selectedCount} selected  `;
-    const actions = getSelectionActions(view) + "  space toggle  esc clear";
+    const actions = getSelectionActions(view, hasClients) + "  space toggle  esc clear";
     return (
       <Box borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} borderDimColor paddingLeft={1}>
         <Text bold color="blue">{selectedCount} selected</Text>
@@ -36,7 +37,7 @@ export function StatusBar({ view, filterMode, selectedCount = 0, width }: Props)
     );
   }
 
-  const hints = truncate(getHints(view), maxW);
+  const hints = truncate(getHints(view, hasTries, hasClients), maxW);
   return (
     <Box borderStyle="single" borderTop borderBottom={false} borderLeft={false} borderRight={false} borderDimColor paddingLeft={1}>
       <Text dimColor>{hints}</Text>
@@ -44,23 +45,29 @@ export function StatusBar({ view, filterMode, selectedCount = 0, width }: Props)
   );
 }
 
-function getSelectionActions(view: View): string {
+function getSelectionActions(view: View, hasClients: boolean): string {
   switch (view.kind) {
     case "tries":
-      return "A archive  p promote  s send";
+      return "A archive  p promote" + (hasClients ? "  s send" : "");
     case "archive":
       return "enter restore";
     default:
-      return "A archive  s send";
+      return "A archive" + (hasClients ? "  s send" : "");
   }
 }
 
-function getHints(view: View): string {
+function getHints(view: View, hasTries: boolean, hasClients: boolean): string {
   switch (view.kind) {
-    case "projects":
-      return "enter cd  v nvim  n new  A archive  s send  t tries  c clients  a archive  / filter  space select  q quit";
+    case "projects": {
+      const parts = ["enter cd", "v nvim", "n new", "A archive"];
+      if (hasClients) parts.push("s send");
+      if (hasTries) parts.push("t tries");
+      if (hasClients) parts.push("c clients");
+      parts.push("a archive", "/ filter", "space select", "q quit");
+      return parts.join("  ");
+    }
     case "tries":
-      return "enter cd  v nvim  p promote  A archive  s send  / filter  space select  esc back";
+      return "enter cd  v nvim  p promote  A archive" + (hasClients ? "  s send" : "") + "  / filter  space select  esc back";
     case "clients":
       return "enter open  n new client  / filter  esc back";
     case "client":

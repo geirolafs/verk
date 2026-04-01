@@ -40,14 +40,21 @@ dev unarchive <name> [year]  # Restore from archive
 
 ## Folder structure
 
+Only `~/Developer/` is required. Optional folders unlock additional features when present.
+
 ```
 ~/Developer/
   YYYY-MM-DD-project/    # Projects (date-prefixed)
-  Clients/               # Client folders, each with their own contents
-  tries/                 # Ephemeral experiments (managed by `try`)
-  Archive/               # Archived projects grouped by year
   TheDev/                # This tool
 ```
+
+**Optional folders:**
+
+| Folder | Feature | How to enable |
+|--------|---------|---------------|
+| `Clients/` | `c` clients view, `s` send to client | Create `~/Developer/Clients/` |
+| `tries/` | `t` tries view, `p` promote to project | Create `~/Developer/tries/` (or install [try](https://github.com/tobi/try)) |
+| `Archive/` | `a` archive view | Created automatically on first archive |
 
 ## Views
 
