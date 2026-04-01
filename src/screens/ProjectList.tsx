@@ -416,6 +416,22 @@ export function ProjectList({
   const visibleItems = filtered.slice(scrollOffset, scrollOffset + maxVisible);
   const showScrollHint = filtered.length > maxVisible;
 
+  // Compute whether short dates (YY) should be used globally.
+  // If nameW is smaller than the full name width, we're truncating — use short dates for all.
+  const useShortDate = useMemo(() => {
+    if (!listWidth) return false;
+    const available = listWidth - 2; // marker
+    // Same shrink logic as ProjectRow: branch first, then name
+    let branchW = 12;
+    const statusW = 16;
+    const timeW = 8;
+    if (maxNameWidth + 1 + branchW + statusW + timeW > available) {
+      branchW = Math.max(0, branchW - (maxNameWidth + 1 + branchW + statusW + timeW - available));
+    }
+    const nameW = Math.min(maxNameWidth + 1, Math.max(15, available - branchW - statusW - timeW));
+    return nameW < maxNameWidth + 1;
+  }, [listWidth, maxNameWidth]);
+
   return (
     <Box flexDirection="column">
       <Box paddingLeft={1} paddingTop={1}>
@@ -464,6 +480,7 @@ export function ProjectList({
                     matchIndices={matchIndices}
                     maxNameWidth={maxNameWidth}
                     termWidth={listWidth}
+                    forceShortDate={useShortDate}
                   />
                 </Box>
               );

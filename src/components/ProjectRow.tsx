@@ -53,11 +53,13 @@ function ProjectName({
   width,
   indices,
   isBold,
+  forceShortDate,
 }: {
   name: string;
   width: number;
   indices: number[] | null;
   isBold: boolean;
+  forceShortDate?: boolean;
 }) {
   const parsed = splitDateName(name);
 
@@ -74,7 +76,18 @@ function ProjectName({
   // Offset for match indices when using short date (2 chars shorter)
   let indexOffset = 0;
 
-  if (fullLen <= width) {
+  if (forceShortDate) {
+    // All rows use short date when any row needs it
+    dateDisplay = shortDate;
+    indexOffset = 2;
+    const shortFullLen = shortDate.length + rest.length;
+    if (shortFullLen <= width) {
+      restDisplay = rest;
+    } else {
+      const availableForRest = width - shortDate.length;
+      restDisplay = availableForRest >= 2 ? rest.slice(0, availableForRest - 1) + "\u2026" : "";
+    }
+  } else if (fullLen <= width) {
     // Full date fits
     dateDisplay = date;
     restDisplay = rest;
@@ -82,7 +95,7 @@ function ProjectName({
     // Short date fits
     dateDisplay = shortDate;
     restDisplay = rest;
-    indexOffset = 2; // indices shift left by 2
+    indexOffset = 2;
   } else {
     // Need to truncate rest too
     dateDisplay = shortDate;
@@ -181,9 +194,10 @@ type Props = {
   matchIndices: number[] | null;
   maxNameWidth: number;
   termWidth?: number;
+  forceShortDate?: boolean;
 };
 
-export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNameWidth, termWidth }: Props) {
+export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNameWidth, termWidth, forceShortDate }: Props) {
   const { name, branch, isGitRepo } = project;
   const marker = isMarked ? "> " : "  ";
   const time = relativeTimeFromPrefix(name);
@@ -221,6 +235,7 @@ export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNam
           width={nameW}
           indices={matchIndices}
           isBold={isSelected}
+          forceShortDate={forceShortDate}
         />
         {branchW > 0 && <Text dimColor>{fit(branch ?? "", branchW)}</Text>}
         {statusW > 0 && (
