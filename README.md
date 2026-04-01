@@ -1,16 +1,17 @@
 # dev
 
-Ink-based TUI for managing `~/Developer` projects, clients, tries, and archives.
+Terminal TUI for managing `~/Developer` projects. Built with Ink + React.
 
 ## Install
 
-Requires [Bun](https://bun.sh), git, and optionally eza (for tree previews).
+Requires [Bun](https://bun.sh) and git. Optional: [eza](https://github.com/eza-community/eza) for tree previews.
 
 ```bash
+git clone <repo-url> ~/Developer/TheDev
 cd ~/Developer/TheDev && bun install
 ```
 
-Add to your shell (already in `~/.config/zsh/functions/dev.zsh`):
+Add the shell wrapper to your `.zshrc` or `.bashrc`:
 
 ```zsh
 dev() {
@@ -28,6 +29,8 @@ dev() {
     rm -f "$tmpfile"
 }
 ```
+
+Then `source ~/.zshrc` and run `dev`.
 
 ## Usage
 
@@ -52,8 +55,8 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 
 | Folder | Feature | How to enable |
 |--------|---------|---------------|
-| `Clients/` | `c` clients view, `s` send to client | Create `~/Developer/Clients/` |
-| `tries/` | `t` tries view, `p` promote to project | Create `~/Developer/tries/` (or install [try](https://github.com/tobi/try)) |
+| `Clients/` | `c` clients view, `s` send to client | `mkdir ~/Developer/Clients` |
+| `tries/` | `t` tries view, `p` promote to project | `mkdir ~/Developer/tries` (or install [try](https://github.com/tobi/try)) |
 | `Archive/` | `a` archive view | Created automatically on first archive |
 
 ## Views
@@ -61,9 +64,9 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 | Key | View | Description |
 |-----|------|-------------|
 | default | `~/Developer` | Your projects |
-| `t` | `~/Developer/tries` | Experiments |
-| `c` | `~/Developer/Clients` | Client list |
-| enter (on client) | `~/Developer/Clients/<name>` | Single client |
+| `t` | `~/Developer/tries` | Experiments (if folder exists) |
+| `c` | `~/Developer/Clients` | Client list (if folder exists) |
+| enter (on client) | `~/Developer/Clients/<name>` | Single client's contents |
 | `a` | `~/Developer/Archive` | Archived projects (year-grouped) |
 | `esc` | — | Back to parent view |
 
@@ -110,7 +113,7 @@ Available via `n` in the TUI or `dev new <name> [template]`:
 |----------|----------------|
 | `empty` | git init + .gitignore |
 | `node` | npm init + .gitignore |
-| `next` | Next.js + TypeScript + Tailwind + App Router (bun default) |
+| `next` | Next.js + TypeScript + Tailwind + App Router |
 | `rust` | cargo init |
 | `python` | venv + .gitignore |
 
@@ -118,7 +121,7 @@ Available via `n` in the TUI or `dev new <name> [template]`:
 
 | Indicator | Meaning |
 |-----------|---------|
-| `●` (green) | Clean — nothing to commit |
+| `○` (green) | Clean — nothing to commit |
 | `~3` | 3 modified files |
 | `+5` | 5 untracked files |
 | `-1` | 1 deleted file |
@@ -126,11 +129,12 @@ Available via `n` in the TUI or `dev new <name> [template]`:
 
 ## Display
 
-- Date prefix shown dimmed, project name bright
-- Progressive truncation on narrow terminals: `YYYY-MM-DD` → `YY-MM-DD` → name truncated with `…`
+- Date prefix dimmed, project name bright
+- Progressive truncation: `YYYY-MM-DD` → `YY-MM-DD` → name truncated with `…`
 - Side preview panel (commits, branches, file tree) on wide terminals (≥100 cols)
 - Scroll indicator `[1-20/55]` when list exceeds screen height
-- Layout responds to terminal resize in real time
+- Responsive layout on terminal resize
+- Time column: `0d` `2w` `1m` `1y` (right-aligned, 3 chars)
 
 ## Stack
 
