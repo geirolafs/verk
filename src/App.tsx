@@ -66,7 +66,7 @@ function getConfig(view: View): ListConfig {
 export function App({ initialNewName }: { initialNewName?: string }) {
   const [view, setView] = useState<View>(
     initialNewName
-      ? { kind: "new", basePath: join(DEV_DIR, "") }
+      ? { kind: "new", basePath: DEV_DIR }
       : { kind: "projects" }
   );
   const [refreshKey, setRefreshKey] = useState(0);

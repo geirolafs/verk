@@ -4,7 +4,7 @@ export function relativeTimeFromPrefix(name: string): string {
   if (!match) return "";
   const date = new Date(match[1]! + "T00:00:00");
   if (isNaN(date.getTime())) return "";
-  const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+  const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24)));
   let label: string;
   if (days < 7) label = `${days}d`;
   else if (days < 35) label = `${Math.floor(days / 7)}w`;

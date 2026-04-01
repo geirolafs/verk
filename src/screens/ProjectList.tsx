@@ -39,11 +39,10 @@ type Dialog =
   | null
   | { kind: "confirmArchive"; targets: Project[] }
   | { kind: "confirmPromote"; targets: Project[] }
-  | { kind: "confirmRestore"; targets: ArchiveEntry[] }
+  | { kind: "confirmRestore"; targets: ArchivedProject[] }
   | { kind: "clientPicker"; targets: Project[] }
   | { kind: "nameInput"; purpose: "client" };
 
-type ArchiveEntry = { name: string; year: string; path: string };
 
 export function ProjectList({
   view,
@@ -126,12 +125,11 @@ export function ProjectList({
     return cursor ? [cursor] : [];
   }
 
-  function getArchiveTargets(): ArchiveEntry[] {
+  function getArchiveTargets(): ArchivedProject[] {
     const targets = getTargets();
-    return targets.map((t) => {
-      const a = archiveData.find((ad) => ad.name === t.name);
-      return a ?? { name: t.name, year: "", path: t.path };
-    });
+    return targets
+      .map((t) => archiveData.find((ad) => ad.name === t.name))
+      .filter((a): a is ArchivedProject => a !== undefined);
   }
 
   function popView() {
@@ -204,19 +202,19 @@ export function ProjectList({
     if (key.upArrow || input === "k") {
       setSelectedIndex((i) => Math.max(0, i - 1));
     } else if (key.downArrow || input === "j") {
-      setSelectedIndex((i) => Math.min(filtered.length - 1, i + 1));
+      setSelectedIndex((i) => Math.min(Math.max(0, filtered.length - 1), i + 1));
     }
     // ctrl+d / ctrl+u — half page
     else if (input === "d" && key.ctrl) {
       const half = Math.floor(maxVisible / 2);
-      setSelectedIndex((i) => Math.min(filtered.length - 1, i + half));
+      setSelectedIndex((i) => Math.min(Math.max(0, filtered.length - 1), i + half));
     } else if (input === "u" && key.ctrl) {
       const half = Math.floor(maxVisible / 2);
       setSelectedIndex((i) => Math.max(0, i - half));
     }
     // G = bottom, g = start gg sequence
     else if (input === "G") {
-      setSelectedIndex(filtered.length - 1);
+      setSelectedIndex(Math.max(0, filtered.length - 1));
     } else if (input === "g") {
       setPendingG(true);
       return;
@@ -446,20 +444,11 @@ export function ProjectList({
   const visibleItems = filtered.slice(scrollOffset, scrollOffset + maxVisible);
   const showScrollHint = filtered.length > maxVisible;
 
-  // Compute whether short dates (YY) should be used globally.
-  // If nameW is smaller than the full name width, we're truncating — use short dates for all.
+  // Use short dates (YY) globally when any row would need truncation.
+  // marker(2) + name + branch(12) + status(16) + time(3) = 33 + name
   const useShortDate = useMemo(() => {
     if (!listWidth) return false;
-    const available = listWidth - 2; // marker
-    // Same shrink logic as ProjectRow: branch first, then name
-    let branchW = 12;
-    const statusW = 16;
-    const timeW = 8;
-    if (maxNameWidth + 1 + branchW + statusW + timeW > available) {
-      branchW = Math.max(0, branchW - (maxNameWidth + 1 + branchW + statusW + timeW - available));
-    }
-    const nameW = Math.min(maxNameWidth + 1, Math.max(15, available - branchW - statusW - timeW));
-    return nameW < maxNameWidth + 1;
+    return maxNameWidth + 1 + 33 > listWidth;
   }, [listWidth, maxNameWidth]);
 
   return (

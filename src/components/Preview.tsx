@@ -37,7 +37,7 @@ export function Preview({ project, height }: { project: Project | undefined; hei
 		return () => {
 			cancelled = true;
 		};
-	}, [project?.path, project]);
+	}, [project?.path]);
 
 	if (!project) {
 		return (

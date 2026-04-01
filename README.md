@@ -4,7 +4,7 @@ Terminal TUI for managing `~/Developer` projects. Built with Ink + React.
 
 ## Install
 
-Requires [Bun](https://bun.sh) and git. Optional: [eza](https://github.com/eza-community/eza) for tree previews.
+Requires [Bun](https://bun.sh) and git. Optional: [eza](https://github.com/eza-community/eza) for tree previews, [try](https://github.com/tobi/try) for experiments in `~/Developer/tries`.
 
 ```bash
 git clone <repo-url> ~/Developer/TheDev
