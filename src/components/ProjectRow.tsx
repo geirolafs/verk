@@ -4,7 +4,7 @@ import { relativeTimeFromPrefix } from "../utils/time.ts";
 
 const BRANCH_WIDTH = 12;
 const STATUS_WIDTH = 16;
-const TIME_WIDTH = 8;
+const TIME_WIDTH = 3;
 
 function fit(str: string, width: number): string {
   if (str.length <= width) return str.padEnd(width);

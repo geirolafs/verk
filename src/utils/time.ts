@@ -25,13 +25,10 @@ export function relativeTimeFromPrefix(name: string): string {
   const date = new Date(match[1]! + "T00:00:00");
   if (isNaN(date.getTime())) return "";
   const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (days <= 0) return "today";
-  if (days === 1) return "1d";
-  if (days < 7) return `${days}d`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo`;
-  const years = Math.floor(months / 12);
-  return `${years}y`;
+  let label: string;
+  if (days < 7) label = `${days}d`;
+  else if (days < 35) label = `${Math.floor(days / 7)}w`;
+  else if (days < 365) label = `${Math.floor(days / 30)}m`;
+  else label = `${Math.floor(days / 365)}y`;
+  return label.padStart(3);
 }
