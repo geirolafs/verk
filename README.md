@@ -117,6 +117,17 @@ Available via `n` in the TUI or `dev new <name> [template]`:
 | `rust` | cargo init |
 | `python` | venv + .gitignore |
 
+### Custom templates
+
+Drop a `.sh` file in `templates/`:
+
+```sh
+# Svelte project with TypeScript
+npx sv create . --template minimal --types ts
+```
+
+First `#` comment = description in the picker. Remaining lines run as shell commands after `git init`. The filename (minus `.sh`) becomes the template name.
+
 ## Git status
 
 | Indicator | Meaning |
