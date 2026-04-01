@@ -3,12 +3,29 @@ import type { Project } from "../types.ts";
 import { relativeTimeFromPrefix } from "../utils/time.ts";
 
 const BRANCH_WIDTH = 12;
-const STATUS_WIDTH = 10;
+const STATUS_WIDTH = 16;
 const TIME_WIDTH = 8;
 
 function fit(str: string, width: number): string {
   if (str.length <= width) return str.padEnd(width);
   return str.slice(0, width - 1) + "\u2026";
+}
+
+function formatStatus(project: Project): string {
+  if (!project.isGitRepo) return "";
+  const { modified, untracked, deleted } = project.status;
+  const parts: string[] = [];
+  if (modified > 0) parts.push(`~${modified}`);
+  if (untracked > 0) parts.push(`+${untracked}`);
+  if (deleted > 0) parts.push(`-${deleted}`);
+  if (project.ahead > 0) parts.push(`\u2191${project.ahead}`);
+  if (parts.length === 0) return "clean";
+  return parts.join(" ");
+}
+
+function isClean(project: Project): boolean {
+  const { modified, untracked, deleted } = project.status;
+  return modified === 0 && untracked === 0 && deleted === 0 && project.ahead === 0;
 }
 
 /** Render name with highlighted match indices */
@@ -72,17 +89,12 @@ type Props = {
 };
 
 export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNameWidth }: Props) {
-  const { name, branch, dirtyCount, isGitRepo } = project;
+  const { name, branch, isGitRepo } = project;
 
   const marker = isMarked ? "> " : "  ";
   const time = relativeTimeFromPrefix(name);
-
-  const statusText =
-    !isGitRepo
-      ? ""
-      : dirtyCount > 0
-        ? `${dirtyCount} dirty`
-        : "clean";
+  const statusText = formatStatus(project);
+  const clean = isClean(project);
 
   return (
     <Box>
@@ -96,7 +108,7 @@ export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNam
         />
         <Text dimColor>{fit(branch ?? "", BRANCH_WIDTH)}</Text>
         <Text
-          color={dirtyCount > 0 ? "yellow" : "green"}
+          color={clean ? "green" : "yellow"}
           dimColor={!isGitRepo}
         >
           {fit(statusText, STATUS_WIDTH)}

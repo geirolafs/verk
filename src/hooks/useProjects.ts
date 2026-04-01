@@ -3,10 +3,11 @@ import { readdir } from "fs/promises";
 import { join } from "path";
 import type { Project } from "../types.ts";
 import * as git from "../utils/git.ts";
-import { isStale } from "../utils/time.ts";
 
 const DEV_DIR = join(process.env["HOME"]!, "Developer");
 const EXCLUDED = new Set(["Archive", "Clients", "tries", ".DS_Store", "TheDev"]);
+
+const EMPTY_STATUS: git.GitStatus = { modified: 0, untracked: 0, deleted: 0 };
 
 export function useProjects(refreshKey = 0) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -21,26 +22,22 @@ export function useProjects(refreshKey = 0) {
         .filter((e) => e.isDirectory() && !EXCLUDED.has(e.name) && !e.name.startsWith("."))
         .map((e) => e.name);
 
-      // Show names immediately
       const initial: Project[] = dirs.map((name) => ({
         name,
         path: join(DEV_DIR, name),
         isGitRepo: false,
         branch: null,
-        dirtyCount: 0,
+        status: EMPTY_STATUS,
+        ahead: 0,
         lastCommitMessage: null,
         lastCommitTime: null,
-        hasUnpushed: false,
-        isStale: false,
       }));
-      // Sort by name descending (date prefix = newest first)
       initial.sort((a, b) => b.name.localeCompare(a.name));
       if (!cancelled) {
         setProjects(initial);
         setLoading(false);
       }
 
-      // Load git info with bounded concurrency
       const CONCURRENCY = 8;
       let i = 0;
 
@@ -56,30 +53,28 @@ export function useProjects(refreshKey = 0) {
             path,
             isGitRepo: isRepo,
             branch: null,
-            dirtyCount: 0,
+            status: EMPTY_STATUS,
+            ahead: 0,
             lastCommitMessage: null,
             lastCommitTime: null,
-            hasUnpushed: false,
-            isStale: false,
           };
 
           if (isRepo) {
-            const [branch, dirtyCount, lastCommit, unpushed] =
+            const [branch, status, lastCommit, ahead] =
               await Promise.all([
                 git.getBranch(path),
-                git.getDirtyCount(path),
+                git.getStatus(path),
                 git.getLastCommit(path),
-                git.hasUnpushed(path),
+                git.getAheadCount(path),
               ]);
 
             project = {
               ...project,
               branch,
-              dirtyCount,
+              status,
+              ahead,
               lastCommitMessage: lastCommit?.message ?? null,
               lastCommitTime: lastCommit?.timestamp ?? null,
-              hasUnpushed: unpushed,
-              isStale: lastCommit ? isStale(lastCommit.timestamp) : false,
             };
           }
 
@@ -98,7 +93,6 @@ export function useProjects(refreshKey = 0) {
         Array.from({ length: CONCURRENCY }, () => next())
       );
 
-      // Sort by name descending (date prefix = newest first)
       if (!cancelled) {
         setProjects((prev) =>
           [...prev].sort((a, b) => b.name.localeCompare(a.name))

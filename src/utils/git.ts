@@ -21,10 +21,28 @@ export async function getBranch(path: string): Promise<string | null> {
   return run(["branch", "--show-current"], path);
 }
 
-export async function getDirtyCount(path: string): Promise<number> {
+export type GitStatus = {
+  modified: number;
+  untracked: number;
+  deleted: number;
+};
+
+export async function getStatus(path: string): Promise<GitStatus> {
   const out = await run(["status", "--porcelain"], path);
-  if (!out) return 0;
-  return out.split("\n").filter(Boolean).length;
+  const status: GitStatus = { modified: 0, untracked: 0, deleted: 0 };
+  if (!out) return status;
+  for (const line of out.split("\n")) {
+    if (!line) continue;
+    const code = line.slice(0, 2);
+    if (code === "??") {
+      status.untracked++;
+    } else if (code.includes("D")) {
+      status.deleted++;
+    } else {
+      status.modified++;
+    }
+  }
+  return status;
 }
 
 export async function getLastCommit(
@@ -49,9 +67,10 @@ export async function getBranches(path: string): Promise<string[]> {
   return out.split("\n").filter(Boolean);
 }
 
-export async function hasUnpushed(path: string): Promise<boolean> {
+export async function getAheadCount(path: string): Promise<number> {
   const out = await run(["log", "@{u}..HEAD", "--oneline"], path);
-  return out !== null && out.length > 0;
+  if (!out) return 0;
+  return out.split("\n").filter(Boolean).length;
 }
 
 export async function getRecentCommits(

@@ -127,8 +127,10 @@ export function ProjectList({ projects, loading, onSetScreen, onRefresh }: Props
   if (confirmArchive) {
     const warnings: string[] = [];
     for (const p of confirmArchive) {
-      if (p.dirtyCount > 0) warnings.push(`${p.name}: ${p.dirtyCount} uncommitted`);
-      if (p.hasUnpushed) warnings.push(`${p.name}: unpushed commits`);
+      const { modified, untracked, deleted } = p.status;
+      const dirty = modified + untracked + deleted;
+      if (dirty > 0) warnings.push(`${p.name}: ${dirty} uncommitted`);
+      if (p.ahead > 0) warnings.push(`${p.name}: ${p.ahead} unpushed`);
     }
 
     return (
