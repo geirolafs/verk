@@ -396,7 +396,24 @@ export function ProjectList({
   }
 
   const termWidth = process.stderr.columns ?? 80;
+  const termRows = process.stderr.rows ?? 24;
   const showSidePreview = termWidth >= 100 && !isArchive && view.kind !== "clients";
+  const listWidth = showSidePreview ? Math.floor(termWidth / 2) : termWidth;
+
+  // Scroll window: reserve 4 rows for header + statusbar + padding
+  const maxVisible = Math.max(5, termRows - 5);
+  const scrollOffset = useMemo(() => {
+    if (filtered.length <= maxVisible) return 0;
+    // Keep cursor centered-ish in the visible window
+    const half = Math.floor(maxVisible / 2);
+    let offset = selectedIndex - half;
+    offset = Math.max(0, offset);
+    offset = Math.min(filtered.length - maxVisible, offset);
+    return offset;
+  }, [selectedIndex, filtered.length, maxVisible]);
+
+  const visibleItems = filtered.slice(scrollOffset, scrollOffset + maxVisible);
+  const showScrollHint = filtered.length > maxVisible;
 
   return (
     <Box flexDirection="column">
@@ -405,6 +422,12 @@ export function ProjectList({
           {config.title}
         </Text>
         {loading && <Text dimColor> loading...</Text>}
+        {showScrollHint && (
+          <Text dimColor>
+            {" "}
+            [{scrollOffset + 1}-{Math.min(scrollOffset + maxVisible, filtered.length)}/{filtered.length}]
+          </Text>
+        )}
       </Box>
 
       <Box flexDirection={showSidePreview ? "row" : "column"} flexGrow={1}>
@@ -420,7 +443,8 @@ export function ProjectList({
               </Text>
             </Box>
           ) : (
-            filtered.map(({ project, matchIndices }, i) => {
+            visibleItems.map(({ project, matchIndices }, vi) => {
+              const i = vi + scrollOffset;
               const yearHeader =
                 isArchive && !filterQuery ? archiveYearMap.get(i) : undefined;
               return (
@@ -438,6 +462,7 @@ export function ProjectList({
                     isMarked={marked.has(project.name)}
                     matchIndices={matchIndices}
                     maxNameWidth={maxNameWidth}
+                    termWidth={listWidth}
                   />
                 </Box>
               );

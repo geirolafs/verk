@@ -80,15 +80,24 @@ function HighlightedName({
   );
 }
 
+// Fixed columns: marker(2) + branch(12) + status(16) + time(8) = 38
+const FIXED_COLS = 2 + BRANCH_WIDTH + STATUS_WIDTH + TIME_WIDTH;
+
 type Props = {
   project: Project;
   isSelected: boolean;
   isMarked: boolean;
   matchIndices: number[] | null;
   maxNameWidth: number;
+  termWidth?: number;
 };
 
-export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNameWidth }: Props) {
+export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNameWidth, termWidth }: Props) {
+  // Cap name width so total row fits terminal
+  const availableForName = termWidth
+    ? Math.max(15, termWidth - FIXED_COLS)
+    : maxNameWidth + 1;
+  const nameWidth = Math.min(maxNameWidth + 1, availableForName);
   const { name, branch, isGitRepo } = project;
 
   const marker = isMarked ? "> " : "  ";
@@ -102,7 +111,7 @@ export function ProjectRow({ project, isSelected, isMarked, matchIndices, maxNam
         {marker}
         <HighlightedName
           name={name}
-          width={maxNameWidth + 1}
+          width={nameWidth}
           indices={matchIndices}
           isBold={isSelected}
         />
