@@ -50,24 +50,31 @@ Usage:
 Projects are created with YYYY-MM-DD- prefix.`);
 } else if (args[0] === "new") {
   const name = args[1];
-  const template = args[2] ?? "empty";
+  const template = args[2];
   if (!name) {
     console.error("Usage: dev new <name> [template]");
     process.exit(1);
   }
-  if (!TEMPLATES.find((t) => t.name === template)) {
-    console.error(
-      `Unknown template: ${template}. Available: ${TEMPLATES.map((t) => t.name).join(", ")}`
-    );
-    process.exit(1);
+  if (!template) {
+    // No template specified — launch TUI template picker
+    globalThis.__devOutputFile = outputFile;
+    globalThis.__devNewName = name;
+    await import("../src/index.tsx");
+  } else {
+    if (!TEMPLATES.find((t) => t.name === template)) {
+      console.error(
+        `Unknown template: ${template}. Available: ${TEMPLATES.map((t) => t.name).join(", ")}`
+      );
+      process.exit(1);
+    }
+    const full = fullProjectName(name);
+    const projectPath = join(DEV_DIR, full);
+    if (existsSync(projectPath)) {
+      console.error(`Project '${full}' already exists`);
+      process.exit(1);
+    }
+    emit(templateCommands(projectPath, template));
   }
-  const full = fullProjectName(name);
-  const projectPath = join(DEV_DIR, full);
-  if (existsSync(projectPath)) {
-    console.error(`Project '${full}' already exists`);
-    process.exit(1);
-  }
-  emit(templateCommands(projectPath, template));
 } else if (args[0] === "archive") {
   const name = args[1];
   if (!name) {

@@ -9,6 +9,7 @@ type Step = "template" | "name" | "pm";
 
 type Props = {
   basePath: string;
+  initialName?: string;
   onBack: () => void;
 };
 
@@ -18,11 +19,12 @@ const PM_OPTIONS = [
   { flag: "--use-npm", label: "npm" },
 ];
 
-export function NewProject({ basePath, onBack }: Props) {
+export function NewProject({ basePath, initialName, onBack }: Props) {
   const { exit } = useApp();
-  const [step, setStep] = useState<Step>("template");
+  // If name is pre-filled (from `dev new <name>`), skip straight to template picker
+  const [step, setStep] = useState<Step>(initialName ? "template" : "template");
   const [template, setTemplate] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName ?? "");
   const [pmIndex, setPmIndex] = useState(0);
 
   useInput((input, key) => {
@@ -66,7 +68,16 @@ export function NewProject({ basePath, onBack }: Props) {
       <TemplatePicker
         onSelect={(t) => {
           setTemplate(t);
-          setStep("name");
+          if (initialName) {
+            // Name already provided — skip to pm or create
+            if (t === "next") {
+              setStep("pm");
+            } else {
+              create(initialName, t);
+            }
+          } else {
+            setStep("name");
+          }
         }}
         onCancel={onBack}
       />

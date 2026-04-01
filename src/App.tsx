@@ -63,8 +63,12 @@ function getConfig(view: View): ListConfig {
   }
 }
 
-export function App() {
-  const [view, setView] = useState<View>({ kind: "projects" });
+export function App({ initialNewName }: { initialNewName?: string }) {
+  const [view, setView] = useState<View>(
+    initialNewName
+      ? { kind: "new", basePath: join(DEV_DIR, "") }
+      : { kind: "projects" }
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const [hasTries, setHasTries] = useState(false);
   const [hasClients, setHasClients] = useState(false);
@@ -85,6 +89,7 @@ export function App() {
     return (
       <NewProject
         basePath={view.basePath}
+        initialName={initialNewName}
         onBack={() => setView({ kind: "projects" })}
       />
     );

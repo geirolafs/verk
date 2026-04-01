@@ -1,10 +1,14 @@
+import { readdirSync, readFileSync } from "fs";
+import { join, basename } from "path";
+
 export type Template = {
   name: string;
   label: string;
   description: string;
+  custom?: boolean;
 };
 
-export const TEMPLATES: Template[] = [
+const BUILTIN: Template[] = [
   { name: "empty", label: "Empty", description: "Git repo + .gitignore" },
   { name: "node", label: "Node.js", description: "npm init + .gitignore" },
   {
@@ -19,6 +23,35 @@ export const TEMPLATES: Template[] = [
     description: "venv + .gitignore",
   },
 ];
+
+const TEMPLATES_DIR = join(import.meta.dir, "../../templates");
+
+/** Load built-in + custom templates from templates/ dir */
+export function getTemplates(): Template[] {
+  const templates = [...BUILTIN];
+  try {
+    const files = readdirSync(TEMPLATES_DIR);
+    for (const file of files) {
+      if (!file.endsWith(".sh")) continue;
+      const name = basename(file, ".sh");
+      if (templates.some((t) => t.name === name)) continue; // don't override builtins
+      const content = readFileSync(join(TEMPLATES_DIR, file), "utf-8");
+      const descMatch = content.match(/^#\s*(.+)/);
+      templates.push({
+        name,
+        label: name,
+        description: descMatch?.[1] ?? "Custom template",
+        custom: true,
+      });
+    }
+  } catch {
+    // no templates dir yet
+  }
+  return templates;
+}
+
+// Keep TEMPLATES as a lazy-loaded singleton for backward compat
+export const TEMPLATES: Template[] = getTemplates();
 
 export function datePrefix(): string {
   const d = new Date();
@@ -39,6 +72,22 @@ export function templateCommands(
   pmFlag?: string
 ): string {
   const lines: string[] = [`mkdir -p '${projectPath}'`, `cd '${projectPath}'`];
+
+  // Check for custom template first
+  try {
+    const scriptPath = join(TEMPLATES_DIR, `${template}.sh`);
+    const content = readFileSync(scriptPath, "utf-8");
+    // Strip comment lines, join remaining as commands
+    const cmds = content
+      .split("\n")
+      .filter((l) => l.trim() && !l.startsWith("#"))
+      .join(" && ");
+    lines.push("git init");
+    if (cmds) lines.push(cmds);
+    return lines.join(" && ");
+  } catch {
+    // Not a custom template — use built-in
+  }
 
   switch (template) {
     case "node":
