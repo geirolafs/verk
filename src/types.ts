@@ -19,15 +19,8 @@ export type View =
   | { kind: "archive" }
   | { kind: "new"; basePath: string };
 
-export type ViewAction =
-  | "cd" | "nvim" | "new" | "archive" | "enterArchive"
-  | "enterTries" | "enterClients" | "enterClient"
-  | "sendToClient" | "promoteTry" | "restore"
-  | "filter" | "select" | "quit";
-
 export type ListConfig = {
   basePath: string;
   title: string;
   excludes: Set<string>;
-  actions: Set<ViewAction>;
 };

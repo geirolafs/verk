@@ -23,42 +23,42 @@ function getConfig(view: View): ListConfig {
         basePath: DEV_DIR,
         title: "~/Developer",
         excludes: PROJECTS_EXCLUDES,
-        actions: new Set(),
+  
       };
     case "tries":
       return {
         basePath: join(DEV_DIR, "tries"),
         title: "~/Developer/tries",
         excludes: EMPTY_EXCLUDES,
-        actions: new Set(),
+  
       };
     case "clients":
       return {
         basePath: join(DEV_DIR, "Clients"),
         title: "~/Developer/Clients",
         excludes: EMPTY_EXCLUDES,
-        actions: new Set(),
+  
       };
     case "client":
       return {
         basePath: join(DEV_DIR, "Clients", view.name),
         title: `~/Developer/Clients/${view.name}`,
         excludes: EMPTY_EXCLUDES,
-        actions: new Set(),
+  
       };
     case "archive":
       return {
         basePath: join(DEV_DIR, "Archive"),
         title: "~/Developer/Archive",
         excludes: EMPTY_EXCLUDES,
-        actions: new Set(),
+  
       };
     default:
       return {
         basePath: DEV_DIR,
         title: "~/Developer",
         excludes: PROJECTS_EXCLUDES,
-        actions: new Set(),
+  
       };
   }
 }

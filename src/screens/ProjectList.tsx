@@ -65,12 +65,12 @@ export function ProjectList({
   const [archiveData, setArchiveData] = useState<ArchivedProject[]>([]);
   const isArchive = view.kind === "archive";
 
-  // Load archive data on mount for archive view
-  useState(() => {
+  // Load archive data when entering archive view
+  useMemo(() => {
     if (isArchive) {
       listArchivedProjects().then(setArchiveData);
     }
-  });
+  }, [isArchive]);
 
   // Build display list: either projects or archive entries
   const displayProjects: Project[] = isArchive
