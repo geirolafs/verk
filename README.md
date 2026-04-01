@@ -66,51 +66,64 @@ dev unarchive <name> [year]  # Restore from archive
 
 | Key | Action |
 |-----|--------|
-| `j`/`k` or arrows | Move cursor |
+| `j`/`k` or `↑`/`↓` | Move cursor |
+| `gg` | Jump to top |
+| `G` | Jump to bottom |
+| `ctrl+d` | Half page down |
+| `ctrl+u` | Half page up |
 | `enter` | cd into project (or open client / restore archive) |
 | `v` | Open in nvim |
 | `/` | Fuzzy filter (highlighted matches) |
-| `esc` | Clear filter / clear selection / back |
+| `esc` | Clear filter → clear selection → back to parent → quit |
 | `q` | Quit |
 
-### Selection
+### Selection & actions
 
 | Key | Action |
 |-----|--------|
 | `space` | Toggle select, advance cursor |
-| `A` | Archive selection |
-| `s` | Send to client (picker) |
+| `A` | Archive selection (or cursor if none selected) |
+| `s` | Send to client (opens client picker) |
+| `n` | New project / new client folder (context-dependent) |
 
-### View-specific
+### View switching
 
 | Key | Where | Action |
 |-----|-------|--------|
 | `t` | projects | Enter tries |
 | `c` | projects | Enter clients |
 | `a` | projects | Enter archive |
-| `p` | tries | Promote to ~/Developer |
-| `n` | projects/client | New project (template picker) |
-| `n` | clients | New client folder |
+| `p` | tries | Promote try to ~/Developer |
 
-### Templates (`n` / `dev new`)
+## Templates
+
+Available via `n` in the TUI or `dev new <name> [template]`:
 
 | Template | What it sets up |
 |----------|----------------|
 | `empty` | git init + .gitignore |
 | `node` | npm init + .gitignore |
-| `next` | Next.js + TypeScript + Tailwind + App Router |
+| `next` | Next.js + TypeScript + Tailwind + App Router (bun default) |
 | `rust` | cargo init |
 | `python` | venv + .gitignore |
 
-## Git status indicators
+## Git status
 
-```
-~3      modified files
-+5      untracked files
--1      deleted files
-↑2      commits ahead of remote
-clean   nothing to commit
-```
+| Indicator | Meaning |
+|-----------|---------|
+| `●` (green) | Clean — nothing to commit |
+| `~3` | 3 modified files |
+| `+5` | 5 untracked files |
+| `-1` | 1 deleted file |
+| `↑2` | 2 commits ahead of remote |
+
+## Display
+
+- Date prefix shown dimmed, project name bright
+- Progressive truncation on narrow terminals: `YYYY-MM-DD` → `YY-MM-DD` → name truncated with `…`
+- Side preview panel (commits, branches, file tree) on wide terminals (≥100 cols)
+- Scroll indicator `[1-20/55]` when list exceeds screen height
+- Layout responds to terminal resize in real time
 
 ## Stack
 
