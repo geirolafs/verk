@@ -93,8 +93,8 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 |-----|--------|
 | `space` | Toggle select, advance cursor |
 | `A` | Archive selection (or cursor if none selected) |
-| `s` | Send to client (opens client picker) |
-| `n` | New project / new client folder (context-dependent) |
+| `S` | Send to client (opens client picker) |
+| `N` | New project / new client folder (context-dependent) |
 
 ### View switching
 
@@ -103,7 +103,7 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 | `t` | projects | Enter tries |
 | `c` | projects | Enter clients |
 | `a` | projects | Enter archive |
-| `p` | tries | Promote try to ~/Developer |
+| `P` | tries | Promote try to ~/Developer |
 
 ## Templates
 

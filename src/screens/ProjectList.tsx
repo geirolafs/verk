@@ -244,7 +244,7 @@ export function ProjectList({
       }
     }
     // New
-    else if (input === "n") {
+    else if (input === "N") {
       if (view.kind === "clients") {
         setDialog({ kind: "nameInput", purpose: "client" });
       } else if (view.kind !== "archive") {
@@ -267,14 +267,14 @@ export function ProjectList({
       onSetView({ kind: "archive" });
     }
     // Send to client
-    else if (input === "s" && hasClients && (view.kind === "projects" || view.kind === "tries")) {
+    else if (input === "S" && hasClients && (view.kind === "projects" || view.kind === "tries")) {
       const targets = getTargets();
       if (targets.length > 0) {
         setDialog({ kind: "clientPicker", targets });
       }
     }
     // Promote try
-    else if (input === "p" && view.kind === "tries") {
+    else if (input === "P" && view.kind === "tries") {
       const targets = getTargets();
       if (targets.length > 0) {
         setDialog({ kind: "confirmPromote", targets });

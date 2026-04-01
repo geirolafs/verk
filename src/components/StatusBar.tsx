@@ -48,30 +48,30 @@ export function StatusBar({ view, filterMode, selectedCount = 0, width, hasTries
 function getSelectionActions(view: View, hasClients: boolean): string {
   switch (view.kind) {
     case "tries":
-      return "A archive  p promote" + (hasClients ? "  s send" : "");
+      return "A archive  P promote" + (hasClients ? "  S send" : "");
     case "archive":
       return "enter restore";
     default:
-      return "A archive" + (hasClients ? "  s send" : "");
+      return "A archive" + (hasClients ? "  S send" : "");
   }
 }
 
 function getHints(view: View, hasTries: boolean, hasClients: boolean): string {
   switch (view.kind) {
     case "projects": {
-      const parts = ["enter cd", "v nvim", "n new", "A archive"];
-      if (hasClients) parts.push("s send");
+      const parts = ["enter cd", "v nvim", "N new", "A archive"];
+      if (hasClients) parts.push("S send");
       if (hasTries) parts.push("t tries");
       if (hasClients) parts.push("c clients");
       parts.push("a archive", "/ filter", "space select", "q quit");
       return parts.join("  ");
     }
     case "tries":
-      return "enter cd  v nvim  p promote  A archive" + (hasClients ? "  s send" : "") + "  / filter  space select  esc back";
+      return "enter cd  v nvim  P promote  A archive" + (hasClients ? "  S send" : "") + "  / filter  space select  esc back";
     case "clients":
-      return "enter open  n new client  / filter  esc back";
+      return "enter open  N new client  / filter  esc back";
     case "client":
-      return "enter cd  v nvim  n new  / filter  space select  esc back";
+      return "enter cd  v nvim  N new  / filter  space select  esc back";
     case "archive":
       return "enter restore  / filter  space select  esc back";
     default:
