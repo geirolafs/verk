@@ -12,6 +12,7 @@ import { SearchInput } from "../components/SearchInput.tsx";
 import { Confirm } from "../components/Confirm.tsx";
 import { ClientPicker } from "../components/ClientPicker.tsx";
 import { fuzzyMatch } from "../utils/fuzzy.ts";
+import { useTerminalSize } from "../hooks/useTerminalSize.ts";
 import {
   archiveProject,
   restoreProject,
@@ -395,8 +396,7 @@ export function ProjectList({
     );
   }
 
-  const termWidth = process.stderr.columns ?? 80;
-  const termRows = process.stderr.rows ?? 24;
+  const { columns: termWidth, rows: termRows } = useTerminalSize();
   const showSidePreview = termWidth >= 100 && !isArchive && view.kind !== "clients";
   const listWidth = showSidePreview ? Math.floor(termWidth / 2) : termWidth;
 
