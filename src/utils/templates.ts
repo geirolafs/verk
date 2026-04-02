@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "fs";
 import { join, basename } from "path";
+import { shellQuote } from "./shellOutput.ts";
 
 export type Template = {
   name: string;
@@ -48,5 +49,5 @@ export function templateCommands(projectPath: string, template: string): string 
     .filter((l) => l.trim() && !l.startsWith("#"))
     .join("\n");
 
-  return `mkdir -p '${projectPath}' && cd '${projectPath}'\n${cmds}`;
+  return `mkdir -p ${shellQuote(projectPath)} && cd ${shellQuote(projectPath)}\n${cmds}`;
 }

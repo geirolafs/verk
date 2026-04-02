@@ -21,7 +21,7 @@ import {
   listArchivedProjects,
   type ArchivedProject,
 } from "../utils/archive.ts";
-import { writeShellCommand } from "../utils/shellOutput.ts";
+import { writeShellCommand, shellQuote, SAFE_NAME } from "../utils/shellOutput.ts";
 
 const DEV_DIR = join(process.env["HOME"]!, "Developer");
 
@@ -158,7 +158,7 @@ export function ProjectList({
         setNameInput("");
       } else if (key.backspace || key.delete) {
         setNameInput((n) => n.slice(0, -1));
-      } else if (key.return && nameInput.trim()) {
+      } else if (key.return && nameInput.trim() && SAFE_NAME.test(nameInput.trim())) {
         const name = nameInput.trim();
         setDialog(null);
         setNameInput("");
@@ -237,7 +237,7 @@ export function ProjectList({
     // Vim open
     else if (input === "v" && !isArchive && view.kind !== "clients") {
       if (marked.size === 0 && cursor) {
-        writeShellCommand(`cd '${cursor.path}' && nvim .`);
+        writeShellCommand(`cd ${shellQuote(cursor.path)} && nvim .`);
         exit();
       }
     }
@@ -308,7 +308,7 @@ export function ProjectList({
         setDialog({ kind: "confirmRestore", targets });
       }
     } else if (marked.size === 0) {
-      writeShellCommand(`cd '${cursor.path}'`);
+      writeShellCommand(`cd ${shellQuote(cursor.path)}`);
       exit();
     }
   }
@@ -466,7 +466,7 @@ export function ProjectList({
         )}
       </Box>
 
-      <Box flexDirection={showSidePreview ? "row" : "column"} flexGrow={1}>
+      <Box flexDirection={showSidePreview ? "row" : "column"}>
         <Box
           flexDirection="column"
           width={showSidePreview ? "50%" : "100%"}
@@ -505,6 +505,9 @@ export function ProjectList({
               );
             })
           )}
+          {showSidePreview && visibleItems.length < maxVisible && (
+            <Box height={maxVisible - visibleItems.length} />
+          )}
         </Box>
 
         {showSidePreview && (
@@ -519,7 +522,7 @@ export function ProjectList({
             width="50%"
             paddingTop={1}
           >
-            <Preview project={cursor} height={maxVisible} />
+            <Preview project={cursor} maxLines={maxVisible} />
           </Box>
         )}
       </Box>

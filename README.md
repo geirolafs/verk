@@ -59,17 +59,6 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 | `tries/` | `t` tries view, `p` promote to project | `mkdir ~/Developer/tries` (or install [try](https://github.com/tobi/try)) |
 | `Archive/` | `a` archive view | Created automatically on first archive |
 
-## Views
-
-| Key | View | Description |
-|-----|------|-------------|
-| default | `~/Developer` | Your projects |
-| `t` | `~/Developer/tries` | Experiments (if folder exists) |
-| `c` | `~/Developer/Clients` | Client list (if folder exists) |
-| enter (on client) | `~/Developer/Clients/<name>` | Single client's contents |
-| `a` | `~/Developer/Archive` | Archived projects (year-grouped) |
-| `esc` | — | Back to parent view |
-
 ## Keybindings
 
 ### Navigation
@@ -107,7 +96,7 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 
 ## Templates
 
-Available via `n` in the TUI or `dev new <name> [template]`:
+Available via `N` in the TUI or `dev new <name> [template]`:
 
 | Template | What it sets up |
 |----------|----------------|
@@ -137,16 +126,3 @@ First `#` comment = description in the picker. Remaining lines run as shell comm
 | `+5` | 5 untracked files |
 | `-1` | 1 deleted file |
 | `↑2` | 2 commits ahead of remote |
-
-## Display
-
-- Date prefix dimmed, project name bright
-- Progressive truncation: `YYYY-MM-DD` → `YY-MM-DD` → name truncated with `…`
-- Side preview panel (commits, branches, file tree) on wide terminals (≥100 cols)
-- Scroll indicator `[1-20/55]` when list exceeds screen height
-- Responsive layout on terminal resize
-- Time column: `0d` `2w` `1m` `1y` (right-aligned, 3 chars)
-
-## Stack
-
-Bun, Ink 6, React 19, TypeScript.

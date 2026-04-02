@@ -38,7 +38,7 @@ export async function listArchivedProjects(): Promise<ArchivedProject[]> {
       try {
         const entries = await readdir(yearPath, { withFileTypes: true });
         for (const entry of entries) {
-          if (entry.isDirectory()) {
+          if (entry.isDirectory() && !entry.isSymbolicLink()) {
             projects.push({
               name: entry.name,
               year,
@@ -76,7 +76,7 @@ export async function listClients(): Promise<string[]> {
   try {
     const entries = await readdir(CLIENTS_DIR, { withFileTypes: true });
     return entries
-      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .filter((e) => e.isDirectory() && !e.isSymbolicLink() && !e.name.startsWith("."))
       .map((e) => e.name)
       .sort();
   } catch {

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { join } from "path";
 import { TemplatePicker } from "../components/TemplatePicker.tsx";
 import { fullProjectName, templateCommands } from "../utils/templates.ts";
-import { writeShellCommand } from "../utils/shellOutput.ts";
+import { writeShellCommand, SAFE_NAME } from "../utils/shellOutput.ts";
 
 type Step = "template" | "name";
 
@@ -32,7 +32,7 @@ export function NewProject({ basePath, initialName, onBack }: Props) {
       onBack();
     } else if (key.backspace || key.delete) {
       setName((n) => n.slice(0, -1));
-    } else if (key.return && name.trim()) {
+    } else if (key.return && name.trim() && SAFE_NAME.test(name.trim())) {
       create(name.trim(), template);
     } else if (input && !key.ctrl && !key.meta) {
       setName((n) => n + input);

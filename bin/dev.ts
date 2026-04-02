@@ -8,6 +8,7 @@ import {
 	TEMPLATES,
 	templateCommands,
 } from "../src/utils/templates.ts";
+import { shellQuote, SAFE_NAME } from "../src/utils/shellOutput.ts";
 
 // Strip --output <file> from args (injected by shell wrapper)
 const rawArgs = process.argv.slice(2);
@@ -24,6 +25,13 @@ for (let i = 0; i < rawArgs.length; i++) {
 }
 
 const DEV_DIR = join(process.env.HOME!, "Developer");
+
+function validateName(name: string) {
+	if (!SAFE_NAME.test(name)) {
+		console.error("Invalid name: only alphanumeric, dots, dashes, underscores allowed");
+		process.exit(1);
+	}
+}
 
 /** Write shell command — to output file if set, otherwise stdout */
 function emit(cmd: string) {
@@ -55,6 +63,7 @@ Projects are created with YYYY-MM-DD- prefix.`);
 		console.error("Usage: dev new <name> [template]");
 		process.exit(1);
 	}
+	validateName(name);
 	if (!template) {
 		// No template specified — launch TUI template picker
 		globalThis.__devOutputFile = outputFile;
@@ -81,6 +90,7 @@ Projects are created with YYYY-MM-DD- prefix.`);
 		console.error("Usage: dev archive <name>");
 		process.exit(1);
 	}
+	validateName(name);
 	if (!existsSync(join(DEV_DIR, name))) {
 		console.error(`Project '${name}' not found`);
 		process.exit(1);
@@ -94,13 +104,14 @@ Projects are created with YYYY-MM-DD- prefix.`);
 		console.error("Usage: dev unarchive <name> [year]");
 		process.exit(1);
 	}
+	validateName(name);
 	if (existsSync(join(DEV_DIR, name))) {
 		console.error(`Project '${name}' already exists in ~/Developer`);
 		process.exit(1);
 	}
 	await restoreProject(name, year);
 	console.error(`Restored '${name}' from ${year}`);
-	emit(`cd '${join(DEV_DIR, name)}'`);
+	emit(`cd ${shellQuote(join(DEV_DIR, name))}`);
 } else {
 	console.error(`Unknown command: ${args[0]}. Run 'dev --help' for usage.`);
 	process.exit(1);

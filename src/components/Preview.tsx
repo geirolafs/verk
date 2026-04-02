@@ -9,7 +9,9 @@ type PreviewData = {
 	tree: string[];
 };
 
-export function Preview({ project, height }: { project: Project | undefined; height?: number }) {
+export function Preview({ project, maxLines }: { project: Project | undefined; maxLines?: number }) {
+	// header: name + last commit + branches + blank line ≈ 4 lines
+	const treeLines = maxLines ? Math.max(5, maxLines - 4) : 20;
 	const [data, setData] = useState<PreviewData | null>(null);
 
 	useEffect(() => {
@@ -25,7 +27,7 @@ export function Preview({ project, height }: { project: Project | undefined; hei
 			const [commits, branches, tree] = await Promise.all([
 				git.getRecentCommits(p.path, 5),
 				git.getBranches(p.path),
-				getTree(p.path),
+				getTree(p.path, treeLines),
 			]);
 
 			if (!cancelled) {
@@ -37,18 +39,18 @@ export function Preview({ project, height }: { project: Project | undefined; hei
 		return () => {
 			cancelled = true;
 		};
-	}, [project?.path]);
+	}, [project?.path, treeLines]);
 
 	if (!project) {
 		return (
-			<Box flexDirection="column" paddingLeft={1} height={height}>
+			<Box flexDirection="column" paddingLeft={1} flexGrow={1}>
 				<Text dimColor>No project selected</Text>
 			</Box>
 		);
 	}
 
 	return (
-		<Box flexDirection="column" paddingLeft={1} paddingRight={1} height={height}>
+		<Box flexDirection="column" paddingLeft={1} paddingRight={1} flexGrow={1}>
 			<Text bold>{project.name}</Text>
 			{project.lastCommitMessage && (
 				<Text dimColor>last: {project.lastCommitMessage}</Text>
@@ -59,7 +61,7 @@ export function Preview({ project, height }: { project: Project | undefined; hei
 						<Text dimColor>branches: {data.branches.join(", ")}</Text>
 					)}
 					<Text> </Text>
-					{data.tree.slice(0, 12).map((line, i) => (
+					{data.tree.map((line, i) => (
 						<Text key={i} dimColor>
 							{line}
 						</Text>
@@ -70,7 +72,7 @@ export function Preview({ project, height }: { project: Project | undefined; hei
 	);
 }
 
-async function getTree(path: string): Promise<string[]> {
+async function getTree(path: string, limit = 20): Promise<string[]> {
 	try {
 		const proc = Bun.spawn(
 			["eza", "--tree", "--level=2", "--icons=never", path],
@@ -80,7 +82,7 @@ async function getTree(path: string): Promise<string[]> {
 			},
 		);
 		const text = await new Response(proc.stdout).text();
-		return text.split("\n").slice(1, 15);
+		return text.split("\n").slice(1, limit + 1);
 	} catch {
 		try {
 			const proc = Bun.spawn(["ls", path], {
