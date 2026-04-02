@@ -1,5 +1,5 @@
 import { Box, Text, useInput, useApp } from "ink";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { join } from "path";
 import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
@@ -18,6 +18,8 @@ import {
   restoreProject,
   promoteTry,
   sendToClient,
+  deleteClient,
+  countClientProjects,
   listArchivedProjects,
   type ArchivedProject,
 } from "../utils/archive.ts";
@@ -41,7 +43,8 @@ type Dialog =
   | { kind: "confirmPromote"; targets: Project[] }
   | { kind: "confirmRestore"; targets: ArchivedProject[] }
   | { kind: "clientPicker"; targets: Project[] }
-  | { kind: "nameInput"; purpose: "client" };
+  | { kind: "nameInput"; purpose: "client" }
+  | { kind: "confirmDeleteClient"; targets: Project[]; projectCounts: Map<string, number> };
 
 
 export function ProjectList({
@@ -54,7 +57,7 @@ export function ProjectList({
   hasClients,
 }: Props) {
   const { exit } = useApp();
-  const { projects, loading } = useProjects(
+  const { projects, loading, error } = useProjects(
     config.basePath,
     config.excludes,
     refreshKey
@@ -65,7 +68,7 @@ export function ProjectList({
   const isArchive = view.kind === "archive";
 
   // Load archive data when entering archive view
-  useMemo(() => {
+  useEffect(() => {
     if (isArchive) {
       listArchivedProjects().then(setArchiveData);
     }
@@ -146,6 +149,11 @@ export function ProjectList({
         exit();
     }
   }
+
+  const { columns: termWidth, rows: termRows } = useTerminalSize();
+  const showSidePreview = termWidth >= 100 && !isArchive && view.kind !== "clients";
+  const listWidth = showSidePreview ? Math.floor(termWidth / 2) - 1 : termWidth;
+  const maxVisible = Math.max(5, termRows - 5);
 
   useInput((input, key) => {
     // Dialogs handle their own input
@@ -250,10 +258,27 @@ export function ProjectList({
       }
     }
     // Archive (shift+A)
-    else if (input === "A" && view.kind !== "archive" && view.kind !== "clients") {
+    else if (input === "A" && view.kind !== "archive") {
       const targets = getTargets();
       if (targets.length > 0) {
-        setDialog({ kind: "confirmArchive", targets });
+        if (view.kind === "clients") {
+          (async () => {
+            const counts = await Promise.all(
+              targets.map(async (t) => [t.name, await countClientProjects(t.name)] as const)
+            );
+            const map = new Map(counts);
+            if (counts.every(([, c]) => c === 0)) {
+              for (const t of targets) await deleteClient(t.name);
+              setMarked(new Set());
+              setSelectedIndex((i) => Math.min(i, Math.max(0, filtered.length - targets.length - 1)));
+              onRefresh();
+            } else {
+              setDialog({ kind: "confirmDeleteClient", targets, projectCounts: map });
+            }
+          })();
+        } else {
+          setDialog({ kind: "confirmArchive", targets });
+        }
       }
     }
     // Enter sub-views
@@ -313,6 +338,23 @@ export function ProjectList({
     }
   }
 
+  const scrollOffset = useMemo(() => {
+    if (filtered.length <= maxVisible) return 0;
+    const half = Math.floor(maxVisible / 2);
+    let offset = selectedIndex - half;
+    offset = Math.max(0, offset);
+    offset = Math.min(filtered.length - maxVisible, offset);
+    return offset;
+  }, [selectedIndex, filtered.length, maxVisible]);
+
+  const visibleItems = filtered.slice(scrollOffset, scrollOffset + maxVisible);
+  const showScrollHint = filtered.length > maxVisible;
+
+  const useShortDate = useMemo(() => {
+    if (!listWidth) return false;
+    return maxNameWidth + 1 + 33 > listWidth;
+  }, [listWidth, maxNameWidth]);
+
   // Dialogs
   if (dialog?.kind === "confirmArchive") {
     const warnings: string[] = [];
@@ -328,8 +370,13 @@ export function ProjectList({
         items={dialog.targets.map((p) => p.name)}
         warning={warnings.length ? warnings.join(", ") : undefined}
         onConfirm={async () => {
+          const cwd = process.cwd();
           for (const p of dialog.targets) {
             await archiveProject(p.name, config.basePath);
+          }
+          // If shell cwd was inside an archived project, cd to base path
+          if (dialog.targets.some((p) => cwd.startsWith(p.path))) {
+            writeShellCommand(`cd ${shellQuote(config.basePath)}`);
           }
           setDialog(null);
           setMarked(new Set());
@@ -374,15 +421,24 @@ export function ProjectList({
             : undefined
         }
         onConfirm={async () => {
+          const failed: string[] = [];
           for (const t of dialog.targets) {
-            if (!existsSync(join(DEV_DIR, t.name))) {
-              await restoreProject(t.name, t.year);
+            if (existsSync(join(DEV_DIR, t.name))) {
+              failed.push(`${t.name} (already exists)`);
+            } else {
+              try {
+                await restoreProject(t.name, t.year);
+              } catch (e: any) {
+                failed.push(`${t.name} (${e.message})`);
+              }
             }
+          }
+          if (failed.length > 0) {
+            console.error(`Failed to restore: ${failed.join(", ")}`);
           }
           setDialog(null);
           setMarked(new Set());
           setSelectedIndex(0);
-          // Refresh archive data
           listArchivedProjects().then(setArchiveData);
           onRefresh();
         }}
@@ -408,6 +464,31 @@ export function ProjectList({
     );
   }
 
+  if (dialog?.kind === "confirmDeleteClient") {
+    const warnings: string[] = [];
+    for (const t of dialog.targets) {
+      const count = dialog.projectCounts.get(t.name) ?? 0;
+      if (count > 0) warnings.push(`${t.name}: ${count} project${count > 1 ? "s" : ""} will be archived`);
+    }
+    return (
+      <Confirm
+        message={`Remove ${dialog.targets.length} client${dialog.targets.length > 1 ? "s" : ""}?`}
+        items={dialog.targets.map((t) => t.name)}
+        warning={warnings.length ? warnings.join(", ") : undefined}
+        onConfirm={async () => {
+          for (const t of dialog.targets) {
+            await deleteClient(t.name);
+          }
+          setDialog(null);
+          setMarked(new Set());
+          setSelectedIndex(0);
+          onRefresh();
+        }}
+        onCancel={() => setDialog(null)}
+      />
+    );
+  }
+
   if (dialog?.kind === "nameInput") {
     return (
       <Box flexDirection="column" paddingLeft={1} paddingTop={1}>
@@ -418,38 +499,14 @@ export function ProjectList({
           <Text>{nameInput}</Text>
           <Text dimColor>{"\u2588"}</Text>
         </Box>
+        {nameInput.trim() && !SAFE_NAME.test(nameInput.trim()) && (
+          <Text color="red" dimColor>letters, numbers, dots, dashes, underscores only</Text>
+        )}
         <Text> </Text>
         <Text dimColor>enter create  esc cancel</Text>
       </Box>
     );
   }
-
-  const { columns: termWidth, rows: termRows } = useTerminalSize();
-  const showSidePreview = termWidth >= 100 && !isArchive && view.kind !== "clients";
-  // Subtract 1 for border char when side preview is shown
-  const listWidth = showSidePreview ? Math.floor(termWidth / 2) - 1 : termWidth;
-
-  // Scroll window: reserve 4 rows for header + statusbar + padding
-  const maxVisible = Math.max(5, termRows - 5);
-  const scrollOffset = useMemo(() => {
-    if (filtered.length <= maxVisible) return 0;
-    // Keep cursor centered-ish in the visible window
-    const half = Math.floor(maxVisible / 2);
-    let offset = selectedIndex - half;
-    offset = Math.max(0, offset);
-    offset = Math.min(filtered.length - maxVisible, offset);
-    return offset;
-  }, [selectedIndex, filtered.length, maxVisible]);
-
-  const visibleItems = filtered.slice(scrollOffset, scrollOffset + maxVisible);
-  const showScrollHint = filtered.length > maxVisible;
-
-  // Use short dates (YY) globally when any row would need truncation.
-  // marker(2) + name + branch(12) + status(16) + time(3) = 33 + name
-  const useShortDate = useMemo(() => {
-    if (!listWidth) return false;
-    return maxNameWidth + 1 + 33 > listWidth;
-  }, [listWidth, maxNameWidth]);
 
   return (
     <Box flexDirection="column">
@@ -475,7 +532,7 @@ export function ProjectList({
           {filtered.length === 0 ? (
             <Box paddingLeft={1}>
               <Text dimColor>
-                {filterQuery ? "No matches" : "Empty"}
+                {error ?? (filterQuery ? "No matches" : "Empty")}
               </Text>
             </Box>
           ) : (

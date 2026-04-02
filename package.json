@@ -1,10 +1,10 @@
 {
-  "name": "thedev",
+  "name": "verk",
   "module": "src/index.tsx",
   "type": "module",
   "private": true,
   "bin": {
-    "thedev": "bin/dev.ts"
+    "verk": "bin/verk.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

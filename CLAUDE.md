@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-`thedev` — a Bun-powered terminal TUI for managing `~/Developer` projects. Built with React + Ink. Projects are date-prefixed (`YYYY-MM-DD-name`), with archive/unarchive to `~/Developer/Archive/<year>/`.
+`verk` — a Bun-powered terminal TUI for managing `~/Developer` projects. Built with React + Ink. Projects are date-prefixed (`YYYY-MM-DD-name`), with archive/unarchive to `~/Developer/Archive/<year>/`.
 
 ## Commands
 
 ```bash
 bun run src/index.tsx        # run TUI directly
-bun run bin/dev.ts           # run via CLI entrypoint
-bun run bin/dev.ts --help    # CLI usage
+bun run bin/verk.ts           # run via CLI entrypoint
+bun run bin/verk.ts --help    # CLI usage
 ```
 
 No linter, no build step — runs directly via Bun.
@@ -23,7 +23,7 @@ bun test                     # run unit tests
 ## Architecture
 
 Two modes of operation:
-- **CLI** (`bin/dev.ts`): handles `new`, `archive`, `unarchive` subcommands. Emits shell commands to stdout (or `--output` file) for the parent shell to eval (e.g., `cd` into new project).
+- **CLI** (`bin/verk.ts`): handles `new`, `archive`, `unarchive` subcommands. Emits shell commands to stdout (or `--output` file) for the parent shell to eval (e.g., `cd` into new project).
 - **TUI** (`src/index.tsx` → `App.tsx`): interactive Ink app with five views: `projects`, `tries`, `clients`, `client`, `archive` — plus `NewProject` screen. View type defined in `types.ts`, routed via `App.tsx`'s `getConfig()`.
 
 Key patterns:

@@ -47,7 +47,7 @@ describe("fuzzyMatch", () => {
   });
 
   test("date-prefixed project names", () => {
-    const r = fuzzyMatch("dev", "2025-04-01-thedev");
+    const r = fuzzyMatch("verk", "2025-04-01-verk");
     expect(r).not.toBeNull();
   });
 });

@@ -12,7 +12,7 @@ const PROJECTS_EXCLUDES = new Set([
   "Clients",
   "tries",
   ".DS_Store",
-  "TheDev",
+  "verk",
 ]);
 const EMPTY_EXCLUDES = new Set([".DS_Store"]);
 

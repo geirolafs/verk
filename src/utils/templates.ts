@@ -42,6 +42,9 @@ export function fullProjectName(name: string): string {
 
 /** Read a template .sh file and return shell commands to eval */
 export function templateCommands(projectPath: string, template: string): string {
+  if (!TEMPLATES.find((t) => t.name === template)) {
+    throw new Error(`Unknown template: ${template}`);
+  }
   const scriptPath = join(TEMPLATES_DIR, `${template}.sh`);
   const content = readFileSync(scriptPath, "utf-8");
   const cmds = content
@@ -49,5 +52,6 @@ export function templateCommands(projectPath: string, template: string): string 
     .filter((l) => l.trim() && !l.startsWith("#"))
     .join("\n");
 
-  return `mkdir -p ${shellQuote(projectPath)} && cd ${shellQuote(projectPath)}\n${cmds}`;
+  const q = shellQuote(projectPath);
+  return `mkdir -p ${q} && cd ${q} && (\n${cmds}\n)`;
 }

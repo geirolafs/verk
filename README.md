@@ -1,4 +1,4 @@
-# dev
+# verk
 
 Terminal TUI for managing `~/Developer` projects. Built with Ink + React.
 
@@ -7,20 +7,20 @@ Terminal TUI for managing `~/Developer` projects. Built with Ink + React.
 Requires [Bun](https://bun.sh) and git. Optional: [eza](https://github.com/eza-community/eza) for tree previews, [try](https://github.com/tobi/try) for experiments in `~/Developer/tries`.
 
 ```bash
-git clone <repo-url> ~/Developer/TheDev
-cd ~/Developer/TheDev && bun install
+git clone <repo-url> ~/Developer/verk
+cd ~/Developer/verk && bun install
 ```
 
 Add the shell wrapper to your `.zshrc` or `.bashrc`:
 
 ```zsh
-dev() {
+verk() {
     local tmpfile=$(mktemp)
     trap "rm -f '$tmpfile'" EXIT
     if [[ $# -eq 0 ]]; then
-        command bun run "$HOME/Developer/TheDev/bin/dev.ts" --output "$tmpfile"
+        command bun run "$HOME/Developer/verk/bin/verk.ts" --output "$tmpfile"
     else
-        command bun run "$HOME/Developer/TheDev/bin/dev.ts" --output "$tmpfile" "$@"
+        command bun run "$HOME/Developer/verk/bin/verk.ts" --output "$tmpfile" "$@"
     fi
     local exit_code=$?
     if [[ $exit_code -eq 0 && -s "$tmpfile" ]]; then
@@ -30,15 +30,15 @@ dev() {
 }
 ```
 
-Then `source ~/.zshrc` and run `dev`.
+Then `source ~/.zshrc` and run `verk`.
 
 ## Usage
 
 ```bash
-dev                          # Interactive TUI
-dev new <name> [template]    # Create project (YYYY-MM-DD- prefixed)
-dev archive <name>           # Archive project
-dev unarchive <name> [year]  # Restore from archive
+verk                          # Interactive TUI
+verk new <name> [template]    # Create project (YYYY-MM-DD- prefixed)
+verk archive <name>           # Archive project
+verk unarchive <name> [year]  # Restore from archive
 ```
 
 ## Folder structure
@@ -48,7 +48,7 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 ```
 ~/Developer/
   YYYY-MM-DD-project/    # Projects (date-prefixed)
-  TheDev/                # This tool
+  verk/                  # This tool
 ```
 
 **Optional folders:**
@@ -96,7 +96,7 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 
 ## Templates
 
-Available via `N` in the TUI or `dev new <name> [template]`:
+Available via `N` in the TUI or `verk new <name> [template]`:
 
 | Template | What it sets up |
 |----------|----------------|

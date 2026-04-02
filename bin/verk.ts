@@ -47,20 +47,20 @@ if (args.length === 0) {
 	globalThis.__devOutputFile = outputFile;
 	await import("../src/index.tsx");
 } else if (args[0] === "--help" || args[0] === "-h") {
-	console.error(`dev - project hub
+	console.error(`verk - project hub
 
 Usage:
-  dev                          Interactive TUI
-  dev new <name> [template]    Create project (templates: ${TEMPLATES.map((t) => t.name).join(", ")})
-  dev archive <name>           Archive project
-  dev unarchive <name> [year]  Restore from archive
+  verk                          Interactive TUI
+  verk new <name> [template]    Create project (templates: ${TEMPLATES.map((t) => t.name).join(", ")})
+  verk archive <name>           Archive project
+  verk unarchive <name> [year]  Restore from archive
 
 Projects are created with YYYY-MM-DD- prefix.`);
 } else if (args[0] === "new") {
 	const name = args[1];
 	const template = args[2];
 	if (!name) {
-		console.error("Usage: dev new <name> [template]");
+		console.error("Usage: verk new <name> [template]");
 		process.exit(1);
 	}
 	validateName(name);
@@ -82,12 +82,13 @@ Projects are created with YYYY-MM-DD- prefix.`);
 			console.error(`Project '${full}' already exists`);
 			process.exit(1);
 		}
+		console.error(`Creating ${full} (${template})...`);
 		emit(templateCommands(projectPath, template));
 	}
 } else if (args[0] === "archive") {
 	const name = args[1];
 	if (!name) {
-		console.error("Usage: dev archive <name>");
+		console.error("Usage: verk archive <name>");
 		process.exit(1);
 	}
 	validateName(name);
@@ -101,7 +102,7 @@ Projects are created with YYYY-MM-DD- prefix.`);
 	const name = args[1];
 	const year = args[2] ?? new Date().getFullYear().toString();
 	if (!name) {
-		console.error("Usage: dev unarchive <name> [year]");
+		console.error("Usage: verk unarchive <name> [year]");
 		process.exit(1);
 	}
 	validateName(name);
@@ -109,10 +110,15 @@ Projects are created with YYYY-MM-DD- prefix.`);
 		console.error(`Project '${name}' already exists in ~/Developer`);
 		process.exit(1);
 	}
-	await restoreProject(name, year);
+	try {
+		await restoreProject(name, year);
+	} catch (e: any) {
+		console.error(`Failed to restore '${name}': ${e.message}`);
+		process.exit(1);
+	}
 	console.error(`Restored '${name}' from ${year}`);
 	emit(`cd ${shellQuote(join(DEV_DIR, name))}`);
 } else {
-	console.error(`Unknown command: ${args[0]}. Run 'dev --help' for usage.`);
+	console.error(`Unknown command: ${args[0]}. Run 'verk --help' for usage.`);
 	process.exit(1);
 }

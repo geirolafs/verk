@@ -1,4 +1,4 @@
-import { readdir, rename, mkdir } from "fs/promises";
+import { readdir, rename, mkdir, rmdir } from "fs/promises";
 import { join } from "path";
 
 const DEV_DIR = join(process.env["HOME"]!, "Developer");
@@ -87,4 +87,29 @@ export async function listClients(): Promise<string[]> {
 /** Create a new client folder */
 export async function createClient(name: string): Promise<void> {
   await mkdir(join(CLIENTS_DIR, name), { recursive: true });
+}
+
+/** Delete a client folder, archiving any projects inside first */
+export async function deleteClient(name: string): Promise<string[]> {
+  const clientDir = join(CLIENTS_DIR, name);
+  const entries = await readdir(clientDir, { withFileTypes: true });
+  const archived: string[] = [];
+  for (const entry of entries) {
+    if (entry.isDirectory() && !entry.isSymbolicLink() && !entry.name.startsWith(".")) {
+      await archiveProject(entry.name, clientDir);
+      archived.push(entry.name);
+    }
+  }
+  await rmdir(clientDir);
+  return archived;
+}
+
+/** Count projects inside a client folder */
+export async function countClientProjects(name: string): Promise<number> {
+  try {
+    const entries = await readdir(join(CLIENTS_DIR, name), { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory() && !e.isSymbolicLink() && !e.name.startsWith(".")).length;
+  } catch {
+    return 0;
+  }
 }

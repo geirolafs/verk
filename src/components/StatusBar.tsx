@@ -49,6 +49,8 @@ function getSelectionActions(view: View, hasClients: boolean): string {
   switch (view.kind) {
     case "tries":
       return "A archive  P promote" + (hasClients ? "  S send" : "");
+    case "clients":
+      return "A archive";
     case "archive":
       return "enter restore";
     default:
@@ -69,7 +71,7 @@ function getHints(view: View, hasTries: boolean, hasClients: boolean): string {
     case "tries":
       return "enter cd  v nvim  P promote  A archive" + (hasClients ? "  S send" : "") + "  / filter  space select  esc back";
     case "clients":
-      return "enter open  N new client  / filter  esc back";
+      return "enter open  N new client  A archive  / filter  space select  esc back";
     case "client":
       return "enter cd  v nvim  N new  / filter  space select  esc back";
     case "archive":

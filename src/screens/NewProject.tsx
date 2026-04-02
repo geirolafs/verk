@@ -70,6 +70,9 @@ export function NewProject({ basePath, initialName, onBack }: Props) {
       <Text dimColor>
         {"\u2192"} {displayPath}/{preview}
       </Text>
+      {name.trim() && !SAFE_NAME.test(name.trim()) && (
+        <Text color="red" dimColor>letters, numbers, dots, dashes, underscores only</Text>
+      )}
       <Text> </Text>
       <Text dimColor>enter create  esc back</Text>
     </Box>

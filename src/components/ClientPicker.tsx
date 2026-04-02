@@ -9,10 +9,11 @@ type Props = {
 
 export function ClientPicker({ onSelect, onCancel }: Props) {
   const [clients, setClients] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(0);
 
   useEffect(() => {
-    listClients().then(setClients);
+    listClients().then((c) => { setClients(c); setLoading(false); });
   }, []);
 
   useInput((input, key) => {
@@ -31,7 +32,9 @@ export function ClientPicker({ onSelect, onCancel }: Props) {
     <Box flexDirection="column" paddingLeft={1} paddingTop={1}>
       <Text bold>Send to client:</Text>
       <Text> </Text>
-      {clients.length === 0 ? (
+      {loading ? (
+        <Text dimColor>Loading...</Text>
+      ) : clients.length === 0 ? (
         <Text dimColor>No clients found</Text>
       ) : (
         clients.map((name, i) => (

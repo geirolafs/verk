@@ -83,8 +83,9 @@ function ProjectName({
     : indices;
 
   const dateLen = dateDisplay.length;
+  const restLen = restDisplay.endsWith("\u2026") ? restDisplay.length - 1 : restDisplay.length;
   const dateIndices = adjusted?.filter((i) => i < dateLen) ?? [];
-  const restIndices = adjusted?.filter((i) => i >= dateLen).map((i) => i - dateLen) ?? [];
+  const restIndices = adjusted?.filter((i) => i >= dateLen && i < dateLen + restLen).map((i) => i - dateLen) ?? [];
 
   return (
     <Text>

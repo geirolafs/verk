@@ -13,6 +13,7 @@ export function useProjects(
 ) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,6 +24,7 @@ export function useProjects(
         entries = await readdir(basePath, { withFileTypes: true });
       } catch {
         if (!cancelled) {
+          setError(`Cannot read ${basePath}`);
           setProjects([]);
           setLoading(false);
         }
@@ -121,5 +123,5 @@ export function useProjects(
     };
   }, [basePath, refreshKey]);
 
-  return { projects, loading };
+  return { projects, loading, error };
 }
