@@ -1,6 +1,6 @@
 # verk
 
-Terminal TUI for managing `~/Developer projects` Vim keys, fuzzy filter, git status, templates, and cd on enter. Built with Ink + React.
+Terminal TUI for managing `~/Developer` projects Vim keys, fuzzy filter, git status, templates, and cd on enter. Built with Ink + React.
 
 ## Install
 
