@@ -1,6 +1,6 @@
 # verk
 
-Terminal TUI for managing `~/Developer` projects. Built with Ink + React.
+Terminal TUI for managing `~/Developer projects` Vim keys, fuzzy filter, git status, templates, and cd on enter. Built with Ink + React.
 
 ## Install
 
@@ -53,58 +53,58 @@ Only `~/Developer/` is required. Optional folders unlock additional features whe
 
 **Optional folders:**
 
-| Folder | Feature | How to enable |
-|--------|---------|---------------|
-| `Clients/` | `c` clients view, `s` send to client | `mkdir ~/Developer/Clients` |
-| `tries/` | `t` tries view, `p` promote to project | `mkdir ~/Developer/tries` (or install [try](https://github.com/tobi/try)) |
-| `Archive/` | `a` archive view | Created automatically on first archive |
+| Folder     | Feature                                | How to enable                                                             |
+| ---------- | -------------------------------------- | ------------------------------------------------------------------------- |
+| `Clients/` | `c` clients view, `s` send to client   | `mkdir ~/Developer/Clients`                                               |
+| `tries/`   | `t` tries view, `p` promote to project | `mkdir ~/Developer/tries` (or install [try](https://github.com/tobi/try)) |
+| `Archive/` | `a` archive view                       | Created automatically on first archive                                    |
 
 ## Keybindings
 
 ### Navigation
 
-| Key | Action |
-|-----|--------|
-| `j`/`k` or `↑`/`↓` | Move cursor |
-| `gg` | Jump to top |
-| `G` | Jump to bottom |
-| `ctrl+d` | Half page down |
-| `ctrl+u` | Half page up |
-| `enter` | cd into project (or open client / restore archive) |
-| `v` | Open in nvim |
-| `/` | Fuzzy filter (highlighted matches) |
-| `esc` | Clear filter → clear selection → back to parent → quit |
-| `q` | Quit |
+| Key                | Action                                                 |
+| ------------------ | ------------------------------------------------------ |
+| `j`/`k` or `↑`/`↓` | Move cursor                                            |
+| `gg`               | Jump to top                                            |
+| `G`                | Jump to bottom                                         |
+| `ctrl+d`           | Half page down                                         |
+| `ctrl+u`           | Half page up                                           |
+| `enter`            | cd into project (or open client / restore archive)     |
+| `v`                | Open in nvim                                           |
+| `/`                | Fuzzy filter (highlighted matches)                     |
+| `esc`              | Clear filter → clear selection → back to parent → quit |
+| `q`                | Quit                                                   |
 
 ### Selection & actions
 
-| Key | Action |
-|-----|--------|
-| `space` | Toggle select, advance cursor |
-| `A` | Archive selection (or cursor if none selected) |
-| `S` | Send to client (opens client picker) |
-| `N` | New project / new client folder (context-dependent) |
+| Key     | Action                                              |
+| ------- | --------------------------------------------------- |
+| `space` | Toggle select, advance cursor                       |
+| `A`     | Archive selection (or cursor if none selected)      |
+| `S`     | Send to client (opens client picker)                |
+| `N`     | New project / new client folder (context-dependent) |
 
 ### View switching
 
-| Key | Where | Action |
-|-----|-------|--------|
-| `t` | projects | Enter tries |
-| `c` | projects | Enter clients |
-| `a` | projects | Enter archive |
-| `P` | tries | Promote try to ~/Developer |
+| Key | Where    | Action                     |
+| --- | -------- | -------------------------- |
+| `t` | projects | Enter tries                |
+| `c` | projects | Enter clients              |
+| `a` | projects | Enter archive              |
+| `P` | tries    | Promote try to ~/Developer |
 
 ## Templates
 
 Available via `N` in the TUI or `verk new <name> [template]`:
 
-| Template | What it sets up |
-|----------|----------------|
-| `empty` | git init + .gitignore |
-| `node` | npm init + .gitignore |
-| `next` | Next.js + TypeScript + Tailwind + App Router |
-| `rust` | cargo init |
-| `python` | venv + .gitignore |
+| Template | What it sets up                              |
+| -------- | -------------------------------------------- |
+| `empty`  | git init + .gitignore                        |
+| `node`   | npm init + .gitignore                        |
+| `next`   | Next.js + TypeScript + Tailwind + App Router |
+| `rust`   | cargo init                                   |
+| `python` | venv + .gitignore                            |
 
 ### Custom templates
 
@@ -119,10 +119,10 @@ First `#` comment = description in the picker. Remaining lines run as shell comm
 
 ## Git status
 
-| Indicator | Meaning |
-|-----------|---------|
+| Indicator   | Meaning                   |
+| ----------- | ------------------------- |
 | `○` (green) | Clean — nothing to commit |
-| `~3` | 3 modified files |
-| `+5` | 5 untracked files |
-| `-1` | 1 deleted file |
-| `↑2` | 2 commits ahead of remote |
+| `~3`        | 3 modified files          |
+| `+5`        | 5 untracked files         |
+| `-1`        | 1 deleted file            |
+| `↑2`        | 2 commits ahead of remote |

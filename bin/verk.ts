@@ -3,6 +3,7 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { archiveProject, restoreProject } from "../src/utils/archive.ts";
+import { isGitUrl, parseGitUrl, repoName } from "../src/utils/gitUrl.ts";
 import {
 	fullProjectName,
 	TEMPLATES,
@@ -42,6 +43,24 @@ function emit(cmd: string) {
 	}
 }
 
+function handleClone(url: string, customName?: string) {
+	const parsed = parseGitUrl(url);
+	if (!parsed) {
+		console.error("Could not parse git URL");
+		process.exit(1);
+	}
+	const name = customName ?? repoName(parsed);
+	validateName(name);
+	const dirName = fullProjectName(name);
+	const projectPath = join(DEV_DIR, dirName);
+	if (existsSync(projectPath)) {
+		console.error(`Project '${dirName}' already exists`);
+		process.exit(1);
+	}
+	console.error(`Cloning into ${dirName}...`);
+	emit(`git clone ${shellQuote(url)} ${shellQuote(projectPath)} && cd ${shellQuote(projectPath)}`);
+}
+
 if (args.length === 0) {
 	// Set output file for TUI shell commands
 	globalThis.__devOutputFile = outputFile;
@@ -52,6 +71,8 @@ if (args.length === 0) {
 Usage:
   verk                          Interactive TUI
   verk new <name> [template]    Create project (templates: ${TEMPLATES.map((t) => t.name).join(", ")})
+  verk clone <url> [name]       Clone repo (auto-names as YYYY-MM-DD-owner-repo)
+  verk <url> [name]             Shorthand for clone
   verk archive <name>           Archive project
   verk unarchive <name> [year]  Restore from archive
 
@@ -98,6 +119,13 @@ Projects are created with YYYY-MM-DD- prefix.`);
 	}
 	await archiveProject(name);
 	console.error(`Archived '${name}'`);
+} else if (args[0] === "clone") {
+	const url = args[1];
+	if (!url) {
+		console.error("Usage: verk clone <url> [name]");
+		process.exit(1);
+	}
+	handleClone(url, args[2]);
 } else if (args[0] === "unarchive") {
 	const name = args[1];
 	const year = args[2] ?? new Date().getFullYear().toString();
@@ -118,6 +146,8 @@ Projects are created with YYYY-MM-DD- prefix.`);
 	}
 	console.error(`Restored '${name}' from ${year}`);
 	emit(`cd ${shellQuote(join(DEV_DIR, name))}`);
+} else if (isGitUrl(args[0]!)) {
+	handleClone(args[0]!, args[1]);
 } else {
 	console.error(`Unknown command: ${args[0]}. Run 'verk --help' for usage.`);
 	process.exit(1);
