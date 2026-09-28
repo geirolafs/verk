@@ -208,6 +208,28 @@ export TRY_PATH=~/code/sketches
 
 Default: `~/src/tries`
 
+### Projects layer (verk)
+
+Set `TRY_PROJECTS` to the folder that holds your tries directory, and graduated
+projects stay in the picker:
+
+```bash
+export TRY_PROJECTS=~/src      # tries live in ~/src/tries
+```
+
+- 💭 tries, projects (`~/src/<name>`) and clients (`acme/`: a folder with a
+  `.try-group` file, holding projects) in one fuzzy list. **Tab** filters:
+  all → tries → projects → archive.
+- **Ctrl-G** graduates a try into a project, with an optional client (autocompletes,
+  new names create the client). No symlink is left behind. On a project it
+  moves it to another client; in the archive it restores.
+- **Ctrl-D** deletes tries, archives projects to `~/src/.archive/`, removes empty clients.
+- Names are lowercased and dashed: `The IT Department` → `the-it-department`.
+- Claude Code history (`~/.claude/projects/<path>`) follows every move.
+- `verk` works as an alias for `try`.
+
+See [spec/projects_spec.md](spec/projects_spec.md).
+
 ## Nix
 
 ### Quick start

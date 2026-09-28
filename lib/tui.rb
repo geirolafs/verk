@@ -126,8 +126,16 @@ module Tui
 
       # Slow path: calculate width per codepoint (avoids each_char + ord)
       width = 0
+      joined = false
       stripped.each_char do |ch|
-        width += char_width(ch.ord)
+        code = ch.ord
+        if code == 0x200D
+          joined = true  # ZWJ: the next emoji merges into the previous glyph
+        elsif joined && char_width(code) > 0
+          joined = false
+        else
+          width += char_width(code)
+        end
       end
       width
     end
@@ -139,6 +147,10 @@ module Tui
 
       # Emoji range (📁🏠🗑📂 etc) = width 2
       return 2 if code >= 0x1F300 && code <= 0x1FAFF
+
+      # BMP emoji we render as wide: ⚓ anchor, ✏ pencil (always followed by VS16)
+      # (🗨 💭 👁 are in the range above)
+      return 2 if code == 0x2693 || code == 0x270F
 
       # Everything else (ASCII, arrows, box drawing, ellipsis) = width 1
       1
@@ -664,6 +676,8 @@ module Tui
           @width += w
           @char_count += 1 if w > 0  # Don't count zero-width chars
         end
+        # ZWJ sequences (👁️‍🗨️) render as one 2-wide glyph
+        @width = 2 if @char.include?("\u200D")
       end
 
       def to_s

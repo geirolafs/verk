@@ -5,6 +5,7 @@ require 'time'
 require 'set'
 require_relative 'lib/tui'
 require_relative 'lib/fuzzy'
+require_relative 'lib/workspace'
 
 # Spinel AOT has no FileUtils, IO#raw/#cooked/#iflush, IO.console, or Gem.
 # These helpers are MRI-compatible stand-ins so the same source runs both ways.
@@ -109,7 +110,10 @@ class TrySelector
   INPUT_CHAR_RE = /[a-zA-Z0-9\-\_\. ]/
   WORD_CHAR_RE = /[a-zA-Z0-9]/
 
-  def initialize(search_term = "", base_path: TRY_PATH, initial_input: nil, test_render_once: false, test_no_cls: false, test_keys: nil, test_confirm: nil)
+  # Tab cycles the list filter when the projects layer is on
+  FILTERS = [:all, :tries, :projects, :archive].freeze
+
+  def initialize(search_term = "", base_path: TRY_PATH, projects_root: nil, initial_input: nil, test_render_once: false, test_no_cls: false, test_keys: nil, test_confirm: nil)
     @search_term = search_term.gsub(/\s+/, '-')
     @cursor_pos = 0  # Navigation cursor (list position)
     @scroll_offset = 0
@@ -130,6 +134,8 @@ class TrySelector
     @test_confirm = test_confirm
     @old_winch_handler = nil  # Store original SIGWINCH handler
     @needs_redraw = false
+    @projects_root = projects_root ? File.expand_path(projects_root.to_s) : nil
+    @filter = :all
 
     TryCompat.mkdir_p(@base_path) unless Dir.exist?(@base_path.to_s)
   end
@@ -230,6 +236,7 @@ class TrySelector
           text: entry,
           basename: entry,
           path: is_symlink ? File.realpath(path) : path,
+          kind: :try,
           is_new: false,
           is_symlink: is_symlink,
           ctime: stat.ctime,
@@ -239,6 +246,81 @@ class TrySelector
       end
       tries
     end
+  end
+
+  # --- Projects layer (verk) ---
+
+  def projects_mode?
+    !@projects_root.nil?
+  end
+
+  # Tries plus projects and clients. Legacy graduation symlinks in the tries
+  # directory are dropped when their target is listed as a project.
+  def load_all_entries
+    @all_entries ||= begin
+      tries = load_all_tries
+      skip = [Workspace.realpath(@base_path)]
+      projects = Workspace.scan_projects(@projects_root, skip).map { |row| workspace_entry(row) }
+      project_paths = projects.map { |e| e[:path] }
+      tries.reject { |t| t[:is_symlink] && project_paths.include?(t[:path]) } + projects
+    end
+  end
+
+  def load_archive_entries
+    @archive_entries ||= Workspace.scan_archive(@projects_root).map { |row| workspace_entry(row) }
+  end
+
+  def workspace_entry(row)
+    hours_since_access = (Time.now - row[:mtime]) / 3600.0
+    # Same +2.0 tries get for their date prefix, so kinds compete on recency
+    bonus = row[:kind] == :client ? 1.0 : 2.0
+    {
+      # Clients show a trailing slash so they read as containers
+      text: row[:kind] == :client ? "#{row[:rel]}/" : row[:rel],
+      basename: File.basename(row[:rel]),
+      rel: row[:rel],
+      path: row[:path],
+      kind: row[:kind],
+      is_new: false,
+      is_symlink: false,
+      ctime: row[:ctime],
+      mtime: row[:mtime],
+      base_score: 3.0 / Math.sqrt(hours_since_access + 1) + bonus
+    }
+  end
+
+  def filtered_entries
+    case @filter
+    when :tries then load_all_entries.select { |e| e[:kind] == :try }
+    when :projects then load_all_entries.select { |e| e[:kind] == :project || e[:kind] == :client }
+    when :archive then load_archive_entries
+    else load_all_entries
+    end
+  end
+
+  def cycle_filter
+    idx = FILTERS.index(@filter) || 0
+    @filter = FILTERS[(idx + 1) % FILTERS.length]
+    @marked_for_deletion.clear
+    @delete_mode = false
+    @cursor_pos = 0
+    @scroll_offset = 0
+    @fuzzy = nil
+    @cached_results = nil
+    @last_query = nil
+  end
+
+  def filter_label
+    case @filter
+    when :tries then "💭 tries"
+    when :projects then "projects"
+    when :archive then "📦 archive"
+    else "all"
+    end
+  end
+
+  def entry_kind(entry)
+    entry[:kind] || :try
   end
 
   # Result wrapper to avoid Hash#merge allocation per entry
@@ -256,6 +338,8 @@ class TrySelector
     def path; data[:path]; end
     def is_new; data[:is_new]; end
     def is_symlink; data[:is_symlink]; end
+    def kind; data[:kind] || :try; end
+    def rel; data[:rel] || data[:basename]; end
     def ctime; data[:ctime]; end
     def mtime; data[:mtime]; end
     def base_score; data[:base_score]; end
@@ -263,8 +347,12 @@ class TrySelector
   end
 
   def get_tries
-    load_all_tries
-    @fuzzy ||= Fuzzy.new(@all_tries)
+    if projects_mode?
+      @fuzzy ||= Fuzzy.new(filtered_entries)
+    else
+      load_all_tries
+      @fuzzy ||= Fuzzy.new(@all_tries)
+    end
 
     # Cache results - only re-match when query changes
     if @last_query == @search.text && @cached_results
@@ -320,10 +408,15 @@ class TrySelector
         @cursor_pos = [@cursor_pos - 1, 0].max
       when "\e[B", "\x0E"  # Down arrow or Ctrl-N
         @cursor_pos = [@cursor_pos + 1, total_items - 1].min
+      when "\t"  # Tab - cycle filter (projects layer only)
+        cycle_filter if projects_mode?
       when "\x04"  # Ctrl-D - toggle mark for deletion
         if @cursor_pos < tries.length
           path = tries[@cursor_pos].path
-          if @marked_for_deletion.include?(path)
+          blocked = projects_mode? && !@marked_for_deletion.include?(path) ? delete_block_reason(tries[@cursor_pos]) : nil
+          if blocked
+            @delete_status = blocked
+          elsif @marked_for_deletion.include?(path)
             @marked_for_deletion.delete(path)
           else
             @marked_for_deletion << path
@@ -337,12 +430,25 @@ class TrySelector
         break if @selected
       when "\x12"  # Ctrl-R - rename selected entry
         if @cursor_pos < tries.length
-          run_rename_dialog(tries[@cursor_pos])
+          if projects_mode? && tries[@cursor_pos].kind == :archived
+            @delete_status = "Restore it first (^G), then rename"
+          else
+            run_rename_dialog(tries[@cursor_pos])
+          end
           break if @selected
         end
       when "\x07"  # Ctrl-G - graduate/ascend selected entry
         if @cursor_pos < tries.length
-          run_ascend_dialog(tries[@cursor_pos])
+          entry = tries[@cursor_pos]
+          if !projects_mode?
+            run_ascend_dialog(entry)
+          elsif entry.kind == :client
+            @delete_status = "Clients stay put. ^R renames one"
+          elsif entry.kind == :archived
+            restore_archived(entry)
+          else
+            run_place_dialog(entry)
+          end
           break if @selected
         end
       when "\x03", "\x1b"  # Ctrl-C or ESC
@@ -435,7 +541,12 @@ class TrySelector
     height = screen.height
 
     line = screen.header.add_line
-    line.write.write(emoji("🏠")).write(Tui::Text.accent(" Try Directory Selection") )
+    if projects_mode?
+      line.write.write(Tui::Text.accent("verk"))
+      line.right.write_dim("#{filter_label} ")
+    else
+      line.write.write(emoji("🏠")).write(Tui::Text.accent(" Try Directory Selection") )
+    end
     line = screen.header.add_line
     line.write.write_dim(fill("─")) 
     line = screen.header.add_line
@@ -457,6 +568,12 @@ class TrySelector
       line = screen.footer.add_line(Tui::Palette::DANGER_BG)
         line.write.write_bold(" DELETE MODE ")
         line.write.write(" #{@marked_for_deletion.length} marked  |  Ctrl-D: Toggle  Enter: Confirm  Esc: Cancel")
+    elsif projects_mode? && @filter == :archive
+      line = screen.footer.add_line
+        line.center.write_dim("Enter: Open  ^G: Restore  Tab: Filter  Esc: Cancel")
+    elsif projects_mode?
+      line = screen.footer.add_line
+        line.center.write_dim("Tab: Filter  ^G: Graduate/Move  ^R: Rename  ^D: Delete/Archive  Esc: Cancel")
     else
       line = screen.footer.add_line
         line.center.write_dim("↑/↓: Navigate  Enter: Select  ^R: Rename  ^G: Graduate  ^D: Delete  Esc: Cancel")
@@ -503,7 +620,9 @@ class TrySelector
 
     line = screen.body.add_line(background)
     line.write.write((is_selected ? Tui::Text.highlight("→ ") + selected_foreground : "  "))
-    icon = if is_marked
+    icon = if projects_mode?
+      kind_icon(entry.kind, is_marked)
+    elsif is_marked
       emoji("🗑️")
     elsif entry.is_symlink
       emoji("🔗")
@@ -530,6 +649,18 @@ class TrySelector
     line.right.write(is_selected ? meta_text : Tui::Text.dim(meta_text))
   end
 
+  def kind_icon(kind, is_marked)
+    if is_marked
+      emoji(kind == :project ? "📦" : "🗑️")
+    else
+      case kind
+      when :project, :client then "  "  # no icon; keeps names aligned with tries
+      when :archived then emoji("📦")
+      else emoji("💭")
+      end
+    end
+  end
+
   def render_create_line(screen, is_selected, width)
     background = if is_selected
       Tui::Palette::SELECTED_BG + Tui::Palette::SELECTED_FG
@@ -537,7 +668,9 @@ class TrySelector
     line = screen.body.add_line(background)
     line.write.write((is_selected ? Tui::Text.highlight("→ ") + selected_foreground : "  "))
     date_prefix = Time.now.strftime("%Y-%m-%d")
-    label = if @search.text.empty?
+    label = if projects_mode?
+      "💭 New try: #{date_prefix}-#{Workspace.slugify(@search.text)}"
+    elsif @search.text.empty?
       "📂 Create new: #{date_prefix}-"
     else
       "📂 Create new: #{date_prefix}-#{@search.text}"
@@ -548,6 +681,24 @@ class TrySelector
   def formatted_entry_name(entry, selected: false)
     basename = entry.basename
     positions = entry.highlight_positions || []
+    text = entry[:text] || basename
+
+    # Projects under a client: dim the "client/" part
+    if text.include?('/') && !text.end_with?('/')
+      cut = text.index('/') + 1
+      prefix = text[0, cut]
+      rendered = String.new
+      prefix.chars.each_with_index do |ch, i|
+        if positions.include?(i)
+          rendered << Tui::Text.highlight(ch)
+          rendered << selected_foreground if selected
+        else
+          rendered << (selected ? ch : Tui::Text.dim(ch))
+        end
+      end
+      rendered << highlight_with_positions(text[cut..-1], positions, cut, selected: selected)
+      return [text, rendered]
+    end
 
     if basename =~ /^(\d{4}-\d{2}-\d{2})-(.+)$/
       date_part = $1
@@ -568,7 +719,7 @@ class TrySelector
       rendered += highlight_with_positions(name_part, positions, date_len, selected: selected)
       ["#{date_part}-#{name_part}", rendered]
     else
-      [basename, highlight_with_positions(basename, positions, 0, selected: selected)]
+      [text, highlight_with_positions(text, positions, 0, selected: selected)]
     end
   end
 
@@ -723,6 +874,8 @@ class TrySelector
   end
 
   def finalize_rename(entry, rename_buffer)
+    return finalize_workspace_rename(entry, rename_buffer) if projects_mode?
+
     new_name = rename_buffer.strip.gsub(/\s+/, '-')
     old_name = entry.basename
 
@@ -733,6 +886,228 @@ class TrySelector
 
     @selected = { type: :rename, old: old_name, new: new_name, base_path: @base_path }
     true
+  end
+
+  # Rename anything in place (projects layer). Names are slugified; renaming a
+  # client moves the Claude history of every project inside it.
+  def finalize_workspace_rename(entry, rename_buffer)
+    new_name = entry.kind == :try ? Workspace.slugify_try(rename_buffer) : Workspace.slugify(rename_buffer)
+    return "Name cannot be empty" if new_name.empty?
+    return true if new_name == entry.basename
+    dest = File.join(File.dirname(entry.path), new_name)
+    return "Already exists: #{new_name}" if File.exist?(dest)
+
+    pairs = [[entry.path, dest]]
+    if entry.kind == :client
+      Workspace.child_dirs(entry.path).each do |name, cpath, _stat|
+        pairs << [Workspace.realpath(cpath), File.join(dest, name)]
+      end
+    end
+    @selected = { type: :move, source: entry.path, dest: dest, make_client: nil, claude: pairs,
+                  message: "Renamed: #{entry.rel} → #{new_name}" }
+    true
+  end
+
+  # Graduate a try, or move a project to another client (projects layer).
+  # Two fields: project name and client. Empty client = top level; a new
+  # client name creates that client.
+  def run_place_dialog(entry)
+    @delete_mode = false
+    @marked_for_deletion.clear
+
+    graduating = entry.kind == :try
+    name_default = graduating ? Workspace.slugify(Workspace.strip_date(entry.basename)) : entry.basename
+    client_default = !graduating && entry.rel.include?('/') ? entry.rel.split('/').first : ""
+    fields = [
+      Tui::InputField.new(placeholder: "", text: name_default),
+      Tui::InputField.new(placeholder: "", text: client_default)
+    ]
+    active = 1
+    clients = Workspace.clients(@projects_root)
+    place_error = nil
+
+    loop do
+      suggestions = Workspace.complete_client(clients, fields[1].text)
+      render_place_dialog(entry, graduating, fields, active, suggestions, clients, place_error)
+
+      ch = read_key
+      next unless ch
+      before = fields[active].text
+      if fields[active].handle_key(ch)
+        place_error = nil if fields[active].text != before
+        next
+      end
+      case ch
+      when "\t"  # Tab - complete client, otherwise switch field
+        if active == 1 && !suggestions.empty? && suggestions.first != Workspace.slugify(fields[1].text)
+          fields[1] = Tui::InputField.new(placeholder: "", text: suggestions.first)
+        else
+          active = 1 - active
+        end
+      when "\e[A", "\e[B", "\x10", "\x0E"  # Up/Down - switch field
+        active = 1 - active
+      when "\r"  # Enter - confirm
+        result = finalize_place(entry, fields[0].text, fields[1].text)
+        break if result == true
+        place_error = result
+      when "\x1b", "\x03"  # ESC or Ctrl-C - cancel
+        break
+      end
+    end
+
+    @needs_redraw = true
+  end
+
+  def render_place_dialog(entry, graduating, fields, active, suggestions, clients, place_error)
+    screen = Tui::Screen.new(io: STDERR)
+
+    line = screen.header.add_line
+    if graduating
+      line.center.write(Tui::Text.accent("Graduate try to project"))
+    else
+      line.center.write(Tui::Text.accent("Move project"))
+    end
+    line = screen.header.add_line
+    line.write.write_dim(fill("─"))
+
+    line = screen.body.add_line
+    line.write.write(kind_icon(entry.kind, false)).write(" #{entry.rel}")
+    screen.body.add_line
+
+    labels = ["  Name:   ", "  Client: "]
+    labels.each_with_index do |label, i|
+      line = screen.body.add_line
+      line.write.write_dim(label)
+      if i == active
+        line.write.write(screen.input("", value: fields[i].text, cursor: fields[i].cursor).to_s)
+        line.mark_has_input(Tui::Metrics.visible_width(label))
+      else
+        line.write.write(fields[i].text)
+      end
+      line.right.write_dim("empty = no client ") if i == 1 && fields[1].text.strip.empty?
+    end
+
+    name = Workspace.slugify(fields[0].text)
+    client = Workspace.slugify(fields[1].text)
+    screen.body.add_line
+    suggestions.first(5).each do |c|
+      line = screen.body.add_line
+      line.write.write("  ")
+      line.write.write(c == client ? Tui::Text.highlight("#{c}/") : Tui::Text.dim("#{c}/"))
+    end
+    if !client.empty? && !clients.include?(client)
+      line = screen.body.add_line
+      line.write.write("  #{client}/").write_dim("  new client, created on Enter")
+    end
+
+    screen.body.add_line
+    dest = client.empty? ? File.join(@projects_root, name) : File.join(@projects_root, client, name)
+    line = screen.body.add_line
+    line.write.write_dim("  → #{dest.sub(/\A#{Regexp.escape(Dir.home)}/, '~')}")
+
+    if place_error
+      screen.body.add_line
+      line = screen.body.add_line
+      line.center.write_bold(place_error)
+    end
+
+    line = screen.footer.add_line
+    line.write.write_dim(fill("─"))
+    line = screen.footer.add_line
+    line.center.write_dim("Tab: Complete client  ↑/↓: Switch field  Enter: Confirm  Esc: Cancel")
+
+    screen.flush
+  end
+
+  def finalize_place(entry, name_text, client_text)
+    name = Workspace.slugify(name_text)
+    client = Workspace.slugify(client_text)
+    return "Name cannot be empty" if name.empty?
+
+    parent = client.empty? ? @projects_root : File.join(@projects_root, client)
+    if !client.empty? && Dir.exist?(parent) && !Workspace.group?(parent)
+      return "#{client} is a project, not a client"
+    end
+    dest = File.join(parent, name)
+    return true if Workspace.realpath(dest) == entry.path  # No change
+    rel = client.empty? ? name : "#{client}/#{name}"
+    return "Already exists: #{rel}" if File.exist?(dest)
+
+    make_client = !client.empty? && !Dir.exist?(parent) ? parent : nil
+    verb = entry.kind == :try ? "Graduated" : "Moved"
+    note = make_client ? " (new client #{client})" : ""
+    @selected = { type: :move, source: entry.path, dest: dest, make_client: make_client,
+                  claude: [[entry.path, dest]], message: "#{verb}: #{entry.rel} → #{rel}#{note}" }
+    true
+  end
+
+  # ^G in the archive view: put the project back where it was archived from.
+  def restore_archived(entry)
+    dest = File.join(@projects_root, entry.rel)
+    if File.exist?(dest)
+      @delete_status = "Can't restore: #{entry.rel} already exists"
+      return
+    end
+    parts = entry.rel.split('/')
+    client_dir = parts.length > 1 ? File.join(@projects_root, parts[0]) : nil
+    if client_dir && Dir.exist?(client_dir) && !Workspace.group?(client_dir)
+      @delete_status = "Can't restore: #{parts[0]} is a project now"
+      return
+    end
+    make_client = client_dir && !Dir.exist?(client_dir) ? client_dir : nil
+    @selected = { type: :move, source: entry.path, dest: dest, make_client: make_client,
+                  claude: [[entry.path, dest]], message: "Restored: #{entry.rel}" }
+  end
+
+  # Why ^D can't mark this entry (projects layer), or nil.
+  def delete_block_reason(entry)
+    case entry.kind
+    when :archived
+      "Archived projects stay archived. Delete them by hand if you must"
+    when :client
+      Workspace.client_empty?(entry.path, @marked_for_deletion) ? nil : "#{entry.rel} still has projects. Archive them first"
+    end
+  end
+
+  def removal_label(kind)
+    case kind
+    when :project then "archive"
+    when :client then "remove empty client"
+    else "delete"
+    end
+  end
+
+  # Tries are deleted, projects move to <root>/.archive/<rel>, empty clients
+  # are removed. Every path is checked against its expected root first.
+  def build_removal(items)
+    tries_real = Workspace.realpath(@base_path)
+    root_real = Workspace.realpath(@projects_root)
+    archive_real = Workspace.archive_root(root_real)
+    marked = items.map { |i| i.path }
+    removal = { type: :remove, tries: [], archive: [], clients: [], root: root_real, names: items.map { |i| i.rel } }
+
+    items.each do |item|
+      real = Workspace.realpath(item.path)
+      case item.kind
+      when :try
+        raise "Safety check failed: #{real} is not inside #{tries_real}" unless real.start_with?(tries_real + "/")
+        removal[:tries] << real
+      when :project, :client
+        unless real.start_with?(root_real + "/") && !real.start_with?(tries_real + "/") && !real.start_with?(archive_real + "/")
+          raise "Safety check failed: #{real} is not a project in #{root_real}"
+        end
+        if item.kind == :client
+          raise "#{item.rel} still has projects" unless Workspace.client_empty?(real, marked)
+          removal[:clients] << real
+        else
+          client = item.rel.include?('/') ? File.join(archive_real, item.rel.split('/').first) : nil
+          removal[:archive] << { source: real, dest: Workspace.free_path(File.join(archive_real, item.rel)), client: client }
+        end
+      else
+        raise "Can't remove #{item.rel}"
+      end
+    end
+    removal
   end
 
   # Ascend dialog - promote a try to a permanent project directory
@@ -850,13 +1225,22 @@ class TrySelector
     @selected = { type: :cd, path: try_dir.path }
   end
 
+  def new_try_name(date_prefix, name)
+    if projects_mode?
+      slug = Workspace.slugify(name)
+      slug.empty? ? date_prefix : "#{date_prefix}-#{slug}"
+    else
+      "#{date_prefix}-#{name}".gsub(/\s+/, '-')
+    end
+  end
+
   def handle_create_new
     # Create new try directory
     date_prefix = Time.now.strftime("%Y-%m-%d")
 
     # If user already typed a name, use it directly
     if !@search.text.empty?
-      final_name = "#{date_prefix}-#{@search.text}".gsub(/\s+/, '-')
+      final_name = new_try_name(date_prefix, @search.text)
       full_path = File.join(@base_path, final_name)
       @selected = { type: :mkdir, path: full_path }
     else
@@ -880,7 +1264,7 @@ class TrySelector
 
       return if entry.nil? || entry.empty?
 
-      final_name = "#{date_prefix}-#{entry}".gsub(/\s+/, '-')
+      final_name = new_try_name(date_prefix, entry)
       full_path = File.join(@base_path, final_name)
 
       @selected = { type: :mkdir, path: full_path }
@@ -940,13 +1324,21 @@ class TrySelector
 
     count = marked_items.length
     line = screen.header.add_line
-      line.center.write(emoji("🗑️")).write(Tui::Text.accent("  Delete #{count} #{count == 1 ? 'directory' : 'directories'}?"))
+      if projects_mode?
+        line.center.write(emoji("🗑️")).write(Tui::Text.accent("  Delete / archive #{count}?"))
+      else
+        line.center.write(emoji("🗑️")).write(Tui::Text.accent("  Delete #{count} #{count == 1 ? 'directory' : 'directories'}?"))
+      end
     line = screen.header.add_line
     line.write.write_dim(fill("─")) 
 
     marked_items.each do |item|
       line = screen.body.add_line(Tui::Palette::DANGER_BG)
+      if projects_mode?
+        line.write.write(kind_icon(item.kind, true)).write(" #{removal_label(item.kind)}: #{item.rel}")
+      else
         line.write.write(emoji("🗑️")).write(" #{item.basename}")
+      end
     end
 
     # Add empty lines, then centered confirmation prompt
@@ -973,6 +1365,17 @@ class TrySelector
   end
 
   def process_delete_confirmation(marked_items, confirmation)
+    if projects_mode? && confirmation == "YES"
+      begin
+        @selected = build_removal(marked_items)
+      rescue => e
+        @delete_status = "Error: #{e.message}"
+      end
+      @marked_for_deletion.clear
+      @delete_mode = false
+      return
+    end
+
     if confirmation == "YES"
       begin
         base_real = File.realpath(@base_path)
@@ -1051,7 +1454,10 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
 
       Environment:
         TRY_PATH          Tries directory (default: ~/src/tries)
-        TRY_PROJECTS      Graduate destination (default: parent of TRY_PATH)
+        TRY_PROJECTS      Graduate destination (default: parent of TRY_PATH).
+                          When set, turns on the projects layer (verk):
+                          projects and clients/ in TRY_PROJECTS are
+                          listed next to 💭 tries. `verk` is an alias of try.
 
       Keyboard:
         ↑/↓, Ctrl-P/N     Navigate
@@ -1061,6 +1467,13 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
         Ctrl-D             Mark for deletion
         Ctrl-T             Create new try
         Esc                Cancel
+
+      Projects layer (TRY_PROJECTS set):
+        Tab                Filter: all → tries → projects → archive
+        Ctrl-G             Graduate try / move project to a client /
+                           restore from archive
+        Ctrl-D             Delete try / archive project / remove empty client
+        A client is a folder with a .try-group file; its subfolders are projects.
     HELP
     STDERR.print(text)
   end
@@ -1203,6 +1616,7 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
         when 'LEFT' then keys << "\e[D"
         when 'RIGHT' then keys << "\e[C"
         when 'ENTER' then keys << "\r"
+        when 'TAB' then keys << "\t"
         when 'ESC' then keys << "\e"
         when 'BACKSPACE' then keys << "\x7F"
         when 'CTRL-A', 'CTRLA' then keys << "\x01"
@@ -1376,6 +1790,7 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
             echo $out
           end
         end
+        function verk; try $argv; end
       FISH
     when 'pwsh'
       ps_path_expr = if explicit_path
@@ -1396,6 +1811,7 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
           }
           Remove-Item $tempErr -ErrorAction SilentlyContinue
         }
+        function verk { try @args }
       PWSH
     else # bash, zsh
       path_arg = explicit_path ? " --path '#{explicit_path}'" : " --path \"${TRY_PATH:-#{default_path}}\""
@@ -1409,6 +1825,7 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
             echo "$out"
           fi
         }
+        verk() { try "$@"; }
       SH
     end
   end
@@ -1464,9 +1881,11 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
     end
 
     # Regular interactive selector
+    projects_env = TrySelector::TRY_PROJECTS.to_s
     selector = TrySelector.new(
       search_term,
       base_path: tries_path,
+      projects_root: projects_env.empty? ? nil : File.expand_path(projects_env),
       initial_input: and_type,
       test_render_once: and_exit,
       test_no_cls: (and_exit || (and_keys && !and_keys.empty?)),
@@ -1485,6 +1904,10 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
       script_rename(result[:base_path], result[:old], result[:new])
     when :ascend
       script_ascend(result[:source], result[:dest], result[:basename], result[:base_path])
+    when :move
+      script_move(result)
+    when :remove
+      script_remove(result)
     when :cancel
       nil
     else
@@ -1597,6 +2020,72 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
     cmds + script_cd(dest)
   end
 
+  # --- Projects layer (verk) scripts ---
+
+  # Moves a directory, keeping git worktree bookkeeping intact.
+  def move_command(source, dest)
+    if File.file?(File.join(source, '.git'))
+      "git worktree move #{q(source)} #{q(dest)}"
+    else
+      "mv #{q(source)} #{q(dest)}"
+    end
+  end
+
+  def make_client_commands(dir)
+    return [] unless dir
+    ["mkdir -p #{q(dir)}", "touch #{q(File.join(dir, Workspace::GROUP_MARKER))}"]
+  end
+
+  # Runs after the move so Claude Code history follows the folder.
+  # _claude-move always exits 0, so it never stops the script.
+  def claude_move_commands(pairs)
+    exe = TryCompat.self_exec_prefix(File.expand_path($0))
+    (pairs || []).map { |from, to| "#{exe} _claude-move #{q(from)} #{q(to)}" }
+  end
+
+  # The shell function has this script's path baked in at init time, so
+  # moving the folder that holds try itself breaks it until a new shell.
+  def self_move_notice(sources)
+    me = File.dirname(File.expand_path($0))
+    moved = sources.any? { |src| me == src || me.start_with?(src + "/") }
+    moved ? ["echo #{q("Note: this moved try/verk itself. Open a new shell (or run: exec $SHELL).")}"] : []
+  end
+
+  def script_move(r)
+    cmds = make_client_commands(r[:make_client])
+    cmds << "mkdir -p #{q(File.dirname(r[:dest]))}"
+    cmds << move_command(r[:source], r[:dest])
+    cmds += claude_move_commands(r[:claude])
+    cmds << "echo #{q(r[:message])}"
+    cmds += self_move_notice([r[:source]])
+    cmds + script_cd(r[:dest])
+  end
+
+  def script_remove(r)
+    cmds = []
+    r[:tries].each { |path| cmds << "test -d #{q(path)} && rm -rf #{q(path)}" }
+    r[:archive].each do |a|
+      cmds += make_client_commands(a[:client])
+      cmds << "mkdir -p #{q(File.dirname(a[:dest]))}"
+      cmds << move_command(a[:source], a[:dest])
+      cmds += claude_move_commands([[a[:source], a[:dest]]])
+    end
+    r[:clients].each do |dir|
+      cmds << "rm -f #{q(File.join(dir, Workspace::GROUP_MARKER))}"
+      cmds << "rmdir #{q(dir)}"
+    end
+    cmds << "echo #{q("Removed: #{r[:names].join(', ')}")}"
+    cmds += self_move_notice(r[:archive].map { |a| a[:source] })
+    # The current directory may itself be gone
+    pwd = begin
+      Dir.pwd
+    rescue
+      nil
+    end
+    cmds << (pwd ? "cd #{q(pwd)} 2>/dev/null || cd #{q(r[:root])}" : "cd #{q(r[:root])}")
+    cmds
+  end
+
   def script_rename(base_path, old_name, new_name)
     new_path = File.join(base_path, new_name)
     [
@@ -1676,6 +2165,15 @@ if $0 == __FILE__ || TryCompat.compiled_binary?
     exit 0
   when 'install'
     cmd_install!(ARGV, tries_path)
+    exit 0
+  when '_claude-move'
+    # Internal: emitted by move/archive scripts. Never fails the script.
+    begin
+      msg = Workspace.claude_move(ARGV[0].to_s, ARGV[1].to_s)
+      puts msg if msg
+    rescue => e
+      puts "Claude history not moved: #{e.message}"
+    end
     exit 0
   when 'exec'
     sub = ARGV.first
